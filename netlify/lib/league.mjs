@@ -19,13 +19,17 @@ export const RULES = {
 export const round1 = (x) => Math.round(x * 10) / 10;
 
 export function seedPlayers() {
-  const names = ["Puig", "Jordi", "Alberto", "Alfon", "Cucho", "Cacha", "Barru", "Erik"];
-  return names.map((name) => ({
-    id: name.toLowerCase(),
-    name,
-    email: name === "Alberto" ? "albertodoradopo@gmail.com" : "",
-    admin: name === "Alberto",
-  }));
+  const roster = [
+    ["Puig", "puigmolinsguille@gmail.com"],
+    ["Jordi", "jjane.salomon@gmail.com"],
+    ["Alberto", "albertodoradopo@gmail.com"],
+    ["Alfon", "alfonsobenavidesf@gmail.com"],
+    ["Cucho", "cuchoborda@gmail.com"],
+    ["Cacha", "luiscasalspich@gmail.com"],
+    ["Barru", "ibarrutietasaez@gmail.com"],
+    ["Erik", "erikroigcortasa@gmail.com"],
+  ];
+  return roster.map(([name, email]) => ({ id: name.toLowerCase(), name, email, admin: name === "Alberto" }));
 }
 
 export function emptyState() {
