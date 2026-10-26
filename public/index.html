@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f4d3a">
+<title>Liguita de tenis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23d7e04a'/><path d='M10 20c14 6 14 18 0 24M54 20c-14 6-14 18 0 24' stroke='%23fff' stroke-width='4' fill='none'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4efe4; --card:#fffdf8; --ink:#1d2420; --muted:#6b6f66; --line:#e3dccb;
+  --court:#1f4d3a; --court-2:#2c6a50; --clay:#b4532a; --clay-soft:#f6e3d8;
+  --win:#dcefe1; --win-ink:#1b5e36; --ball:#d7e04a; --danger:#9a3b1f;
+  --shadow:0 1px 0 rgba(0,0,0,.03),0 8px 24px -14px rgba(31,77,58,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"DM Sans",system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--court)}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px 96px}
+header.top{background:var(--court);color:#f4efe4;position:relative;overflow:hidden}
+header.top::after{content:"";position:absolute;inset:auto -10% -60px -10%;height:120px;border-top:2px solid rgba(255,255,255,.18);border-radius:50%}
+.top-in{max-width:860px;margin:0 auto;padding:18px 16px 26px;position:relative;z-index:1}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.kicker{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ball);font-weight:700}
+h1{font-family:Fraunces,serif;font-weight:800;font-size:34px;line-height:1.05;margin:6px 0 4px;letter-spacing:-.01em}
+.sub{color:rgba(244,239,228,.75);font-size:14px;display:flex;align-items:center;gap:8px}
+.live{display:inline-flex;align-items:center;gap:6px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ball);box-shadow:0 0 0 0 rgba(215,224,74,.7);animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(215,224,74,0)}100%{box-shadow:0 0 0 0 rgba(215,224,74,0)}}
+.who{font-size:14px;text-align:right}
+.who button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:999px;padding:7px 14px;cursor:pointer}
+.who small{display:block;opacity:.7;margin-top:4px;cursor:pointer}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;margin:18px 0 14px;scrollbar-width:none;border-bottom:1px solid var(--line)}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{background:none;border:0;padding:10px 12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button.on{color:var(--court);border-color:var(--clay)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card h2{font-family:Fraunces,serif;font-size:20px;margin:0 0 10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.alert{border-radius:14px;padding:14px;margin:14px 0;background:var(--clay-soft);border:1px solid #ecc9b6}
+.alert h3{margin:0 0 8px;font-size:15px}
+.alert .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px dashed #e4bfa9}
+.alert .row:first-of-type{border-top:0}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer;background:var(--court);color:#fff}
+.btn.sec{background:#efe9db;color:var(--ink)}
+.btn.red{background:var(--danger)}
+.btn.sm{padding:7px 11px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:20;background:var(--clay);color:#fff;border:0;border-radius:999px;padding:15px 22px;font-weight:700;font-size:16px;box-shadow:0 12px 30px -10px rgba(180,83,42,.7);cursor:pointer;display:flex;align-items:center;gap:8px}
+table.rank{width:100%;border-collapse:separate;border-spacing:0 6px}
+table.rank th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:right;padding:0 8px}
+table.rank th:nth-child(2){text-align:left}
+table.rank td{background:var(--card);padding:12px 8px;text-align:right;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+table.rank td:first-child{border-left:1px solid var(--line);border-radius:12px 0 0 12px;text-align:center;font-family:Fraunces,serif;font-weight:800;font-size:18px;width:42px}
+table.rank td:last-child{border-right:1px solid var(--line);border-radius:0 12px 12px 0}
+table.rank td.name{text-align:left;font-weight:600;cursor:pointer}
+.av{width:34px;height:34px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:10px;background:#e9e2d0;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--court);flex:none}
+.av.lg{width:64px;height:64px;font-size:22px;margin-right:14px}
+.nm{display:inline-flex;align-items:center}
+table.rank tr.top td{background:var(--win);border-color:#bddcc6}
+table.rank tr.top td:first-child{color:var(--win-ink)}
+table.rank tr.me td.name::after{content:" · tú";color:var(--muted);font-weight:500}
+.pts{font-family:Fraunces,serif;font-weight:800;font-size:20px}
+.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:.02em}
+.tag.dinner{background:var(--court);color:#fff}
+.tag.bonus{background:#fff4c9;color:#7a5d00}
+.tag.clay{background:var(--clay-soft);color:var(--clay)}
+.form{display:flex;gap:3px;justify-content:flex-end}
+.form b{width:9px;height:9px;border-radius:50%;display:inline-block;background:#cfd6cf}
+.form b.w{background:var(--court-2)}.form b.l{background:#d9a28a}
+.hide-s{display:table-cell}
+@media (max-width:560px){.hide-s{display:none}h1{font-size:28px}}
+.match{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-top:1px solid var(--line)}
+.match:first-child{border-top:0}
+.match .score{font-family:Fraunces,serif;font-weight:800;font-size:18px;text-align:right}
+.match .meta{grid-column:1/-1;font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.delta{font-weight:700}.delta.p{color:var(--win-ink)}.delta.n{color:var(--danger)}
+.thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:#f8f4ea;border-radius:12px;padding:12px}
+.stat .v{font-family:Fraunces,serif;font-weight:800;font-size:24px}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+select.pick{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--card);font-weight:600}
+table.h2h{width:100%;border-collapse:collapse;font-size:14px}
+table.h2h td,table.h2h th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+table.h2h td:first-child,table.h2h th:first-child{text-align:left}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.legend i{width:10px;height:3px;border-radius:2px;display:inline-block}
+.rules p{margin:0 0 10px;line-height:1.55}
+.rules b{color:var(--court)}
+dialog{border:0;border-radius:18px;padding:0;max-width:520px;width:calc(100% - 24px);background:var(--card);color:var(--ink);box-shadow:0 30px 80px -20px rgba(0,0,0,.45)}
+dialog::backdrop{background:rgba(29,36,32,.55)}
+.dlg{padding:20px}
+.dlg h2{font-family:Fraunces,serif;margin:0 0 14px;font-size:22px}
+.field{margin-bottom:14px}
+.field>label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.inp{width:100%;border:1px solid #d9d1bd;border-radius:10px;padding:11px 12px;background:#fff}
+.seg{display:flex;background:#efe9db;border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:0;background:none;padding:10px;border-radius:9px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.seg button.on.win{color:var(--win-ink)}.seg button.on.loss{color:var(--danger)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{border:1px solid #d9d1bd;background:#fff;border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:500}
+.chips button.on{background:var(--court);color:#fff;border-color:var(--court)}
+.sets{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center}
+.sets .h{font-size:12px;color:var(--muted);text-align:center}
+.sets input{width:100%;text-align:center;border:1px solid #d9d1bd;border-radius:10px;padding:10px 4px;font-size:18px;font-weight:700;background:#fff}
+.preview{background:#f3f7f1;border:1px solid #cfe2d3;border-radius:12px;padding:10px 12px;font-size:14px}
+.err{color:var(--danger);font-size:14px;margin:8px 0 0;min-height:1em}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;z-index:50;font-weight:500;max-width:90vw;box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
+.empty{padding:20px 0;text-align:center;color:var(--muted)}
+.admin-row{display:grid;grid-template-columns:1fr 1.6fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.admin-row .inp{padding:8px 10px}
+details.sub{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+details.sub summary{cursor:pointer;font-weight:600}
+.check{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.check input{margin-top:3px;width:18px;height:18px;accent-color:var(--court)}
+.photo-full{max-width:100%;border-radius:12px;display:block}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="bar">
+    <div>
+      <div class="kicker" id="season">Liguita de tenis</div>
+      <h1>Liguita de tenis</h1>
+      <div class="sub"><span class="live"><i></i> En directo</span><span id="updated"></span></div>
+    </div>
+    <div class="who" id="who"></div>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div id="pending"></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="rank" class="on">Clasificación</button>
+    <button data-tab="matches">Partidos</button>
+    <button data-tab="player">Jugadores</button>
+    <button data-tab="rules">Reglas</button>
+    <button data-tab="admin" id="tab-admin" hidden>Admin</button>
+  </nav>
+  <main id="view"><div class="empty">Cargando…</div></main>
+</div>
+
+<button class="fab" id="fab"><span style="font-size:20px;line-height:0">+</span> Apuntar partido</button>
+
+<dialog id="dlg"><div class="dlg" id="dlg-body"></div></dialog>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const COLORS = ["#1f4d3a", "#b4532a", "#3a6ea5", "#8a5a9e", "#c99a17", "#4f8a3a", "#c2456b", "#2b8a8a", "#7a6a55", "#555"];
+let S = null;                // estado del servidor
+let tab = "rank";
+let selected = null;         // jugador seleccionado en estadísticas
+let hiddenSeries = new Set();
+
+const name = (id) => S.players.find((p) => p.id === id)?.name || id;
+const venueOf = (m) => (m.venue === "Otra" ? m.venueOther || "Otra pista" : m.venue);
+const score = (sets) => (sets || []).map(([a, b]) => `${a}-${b}`).join(" ");
+// Foto de cada jugador: public/fotos/<id>.jpg. Si no existe, iniciales.
+const avatar = (id, cls = "") => `<img class="av ${cls}" src="/fotos/${id}.jpg" alt="" onerror="this.outerHTML='<span class=&quot;av ${cls}&quot;>${esc(name(id).slice(0, 2).toUpperCase())}</span>'">`;
+const fmt = (n) => (Math.round(n * 10) / 10).toLocaleString("es-ES");
+const signed = (n) => (n > 0 ? "+" : "") + fmt(n);
+const when = (ts) => new Date(ts).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch("/api/" + path, { credentials: "same-origin", ...opts });
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data.error || "Algo ha fallado");
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) });
+
+async function refresh() {
+  try {
+    S = await api("state");
+    $("#updated").textContent = "· actualizado " + new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    render();
+  } catch (e) { console.error(e); }
+}
+
+/* ---------- cálculos en el cliente ---------- */
+function confirmed() { return S.matches.filter((m) => m.status === "confirmed").sort((a, b) => b.confirmedAt - a.confirmedAt); }
+function recentForm(id) {
+  return confirmed().filter((m) => m.winner === id || m.loser === id).slice(0, 5).reverse().map((m) => (m.winner === id ? "w" : "l"));
+}
+function streak(id) {
+  const ms = confirmed().filter((m) => m.winner === id || m.loser === id);
+  if (!ms.length) return "–";
+  const first = ms[0].winner === id;
+  let n = 0;
+  for (const m of ms) { if ((m.winner === id) === first) n++; else break; }
+  return (first ? "G" : "P") + n;
+}
+function deltaFor(m, id) { return m.deltas ? (m.winner === id ? m.deltas.winner : m.deltas.loser) : null; }
+
+/* ---------- render ---------- */
+function render() {
+  $("#season").textContent = S.season?.name || "Liguita de tenis";
+  renderWho();
+  renderPending();
+  $("#tab-admin").hidden = !S.me?.admin;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  const v = $("#view");
+  if (tab === "rank") v.innerHTML = viewRank();
+  if (tab === "matches") v.innerHTML = viewMatches();
+  if (tab === "player") v.innerHTML = viewPlayer();
+  if (tab === "rules") v.innerHTML = viewRules();
+  if (tab === "admin") v.innerHTML = S.me?.admin ? viewAdmin() : "";
+  bindView();
+}
+
+function renderWho() {
+  const w = $("#who");
+  if (S.me) w.innerHTML = `<div style="font-weight:700">${esc(S.me.name)}</div><small id="logout">Salir</small>`;
+  else w.innerHTML = `<button id="login">Entrar</button>`;
+  $("#login")?.addEventListener("click", openLogin);
+  $("#logout")?.addEventListener("click", async () => { await post("logout"); await refresh(); toast("Has salido"); });
+}
+
+function renderPending() {
+  const box = $("#pending");
+  if (!S.me) { box.innerHTML = ""; return; }
+  const me = S.me.id;
+  const toConfirm = S.matches.filter((m) => m.status === "pending" && (m.winner === me || m.loser === me) && m.reportedBy !== me);
+  const toVote = S.matches.filter((m) => m.status === "vote" && m.winner !== me && m.loser !== me && !(m.votes && me in m.votes));
+  const mine = S.matches.filter((m) => m.status === "pending" && m.reportedBy === me);
+  if (!toConfirm.length && !toVote.length && !mine.length) { box.innerHTML = ""; return; }
+  let h = `<div class="alert">`;
+  if (toConfirm.length) {
+    h += `<h3>Tienes que confirmar</h3>`;
+    h += toConfirm.map((m) => `<div class="row"><div><b>${esc(name(m.winner))}</b> gana a <b>${esc(name(m.loser))}</b> ${esc(score(m.sets))}<div class="small muted">${esc(venueOf(m))}${m.incomplete ? " · sin terminar, irá a votación" : ""}</div></div>
+      <div><button class="btn sm" data-act="confirm" data-id="${m.id}">Confirmar</button> <button class="btn sm red" data-act="reject" data-id="${m.id}">No es así</button></div></div>`).join("");
+  }
+  if (toVote.length) {
+    h += `<h3 style="margin-top:10px">Votación pendiente</h3>`;
+    h += toVote.map((m) => `<div class="row"><div>¿Convalidamos <b>${esc(name(m.winner))}</b> - ${esc(name(m.loser))} ${esc(score(m.sets))}?<div class="small muted">Partido sin terminar</div></div>
+      <div><button class="btn sm" data-act="yes" data-id="${m.id}">Convalidar</button> <button class="btn sm red" data-act="no" data-id="${m.id}">No</button></div></div>`).join("");
+  }
+  if (mine.length) {
+    h += `<h3 style="margin-top:10px">Esperando a tu rival</h3>`;
+    h += mine.map((m) => `<div class="row"><div>${esc(name(m.winner))} gana a ${esc(name(m.loser))} ${esc(score(m.sets))}<div class="small muted">Se confirma solo a las 48 h si no responde</div></div>
+      <div><button class="btn sm sec" data-cancel="${m.id}">Borrar</button></div></div>`).join("");
+  }
+  box.innerHTML = h + `</div>`;
+  box.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => respond(b.dataset.id, b.dataset.act)));
+  box.querySelectorAll("[data-cancel]").forEach((b) => b.addEventListener("click", () => cancelMatch(b.dataset.cancel)));
+}
+
+async function respond(id, action) {
+  let reason = "";
+  if (action === "reject") { reason = prompt("¿Qué ha pasado? (opcional)") ?? null; if (reason === null) return; }
+  try { const r = await post(`match/${id}/respond`, { action, reason }); S = r.state; render(); toast({ confirm: "Confirmado, clasificación actualizada", reject: "Rechazado", yes: "Voto registrado", no: "Voto registrado" }[action]); }
+  catch (e) { toast(e.message); }
+}
+async function cancelMatch(id) {
+  if (!confirm("¿Borrar este partido?")) return;
+  try { const r = await post(`match/${id}/cancel`); S = r.state; render(); toast("Borrado"); } catch (e) { toast(e.message); }
+}
+
+function viewRank() {
+  const rows = S.standings;
+  const anyMatch = confirmed().length > 0;
+  const body = rows.map((r) => `<tr class="${r.pos <= 3 && anyMatch ? "top" : ""} ${S.me?.id === r.id ? "me" : ""}">
+    <td>${r.pos}</td>
+    <td class="name" data-player="${r.id}"><span class="nm">${avatar(r.id)}${esc(r.name)}</span>${r.pos <= 3 && anyMatch ? '<span class="tag dinner">cena</span>' : ""}${r.bonusPending ? '<span class="tag bonus" title="Al cierre suma 7 por participación">+7</span>' : ""}</td>
+    <td><span class="pts">${fmt(r.pts)}</span></td>
+    <td>${r.pj}</td>
+    <td class="hide-s">${r.pg}-${r.pp}</td>
+    <td class="hide-s">${r.setsW}-${r.setsL}</td>
+    <td><div class="form">${recentForm(r.id).map((x) => `<b class="${x}"></b>`).join("") || '<span class="small muted">–</span>'}</div></td>
+  </tr>`).join("");
+  return `
+  <table class="rank"><thead><tr><th>#</th><th>Jugador</th><th>Pts</th><th>PJ</th><th class="hide-s">G-P</th><th class="hide-s">Sets</th><th>Forma</th></tr></thead><tbody>${body}</tbody></table>
+  <p class="small muted" style="margin:4px 2px 18px">Los 3 primeros en verde ganan la cena. <span class="tag bonus" style="margin:0">+7</span> = ya tiene entre 7 y 15 partidos y suma el bonus al cerrar la temporada. Empate a puntos: cara a cara.</p>
+  <div class="card chart"><h2>Evolución de puntos</h2>${anyMatch ? pointsChart() : '<div class="empty">Aún no hay partidos. El primero que gane estrena la gráfica.</div>'}</div>
+  <div class="card"><h2>Últimos partidos</h2>${matchList(confirmed().slice(0, 5)) || '<div class="empty">Nada todavía</div>'}</div>`;
+}
+
+function pointsChart(only) {
+  const ids = only ? [only] : S.players.map((p) => p.id);
+  const evs = [...S.ledger].sort((a, b) => a.ts - b.ts);
+  if (!evs.length) return "";
+  const t0 = evs[0].ts - 3600e3, t1 = Math.max(Date.now(), evs[evs.length - 1].ts);
+  const series = {};
+  for (const id of ids) series[id] = [[t0, 0]];
+  const acc = {};
+  for (const e of evs) {
+    if (!series[e.playerId]) continue;
+    acc[e.playerId] = (acc[e.playerId] || 0) + e.pts;
+    series[e.playerId].push([e.ts, acc[e.playerId]]);
+  }
+  for (const id of ids) series[id].push([t1, acc[id] || 0]);
+  const vals = Object.values(series).flat().map((p) => p[1]);
+  let lo = Math.min(0, ...vals), hi = Math.max(10, ...vals);
+  const W = 640, H = 240, P = { l: 34, r: 10, t: 10, b: 22 };
+  const x = (t) => P.l + ((t - t0) / (t1 - t0 || 1)) * (W - P.l - P.r);
+  const y = (v) => H - P.b - ((v - lo) / (hi - lo || 1)) * (H - P.t - P.b);
+  let g = "";
+  const step = Math.max(5, Math.ceil((hi - lo) / 4 / 5) * 5);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#e3dccb" stroke-width="1"/><text x="${P.l - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#6b6f66">${v}</text>`;
+  }
+  const top = new Set(S.standings.slice(0, 3).map((r) => r.id));
+  let lines = "";
+  ids.forEach((id) => {
+    if (hiddenSeries.has(id) && !only) return;
+    const i = S.players.findIndex((p) => p.id === id);
+    const pts = series[id];
+    let d = `M${x(pts[0][0])},${y(pts[0][1])}`;
+    for (let k = 1; k < pts.length; k++) d += `H${x(pts[k][0])}V${y(pts[k][1])}`;
+    const strong = only || top.has(id);
+    lines += `<path d="${d}" fill="none" stroke="${COLORS[i % COLORS.length]}" stroke-width="${strong ? 2.6 : 1.5}" stroke-opacity="${strong ? 1 : .55}" stroke-linejoin="round"/>`;
+  });
+  const legend = only ? "" : `<div class="legend">${S.players.map((p, i) => `<span data-series="${p.id}" style="opacity:${hiddenSeries.has(p.id) ? .35 : 1}"><i style="background:${COLORS[i % COLORS.length]}"></i>${esc(p.name)}</span>`).join("")}</div>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución de puntos">${g}${lines}</svg>${legend}`;
+}
+
+function matchList(ms, perspective) {
+  return ms.map((m) => {
+    const d = m.deltas;
+    let deltas = "";
+    if (d) {
+      if (perspective) { const v = deltaFor(m, perspective); deltas = `<span class="delta ${v >= 0 ? "p" : "n"}">${signed(v)} pts</span>`; }
+      else deltas = `<span class="delta p">${esc(name(m.winner))} ${signed(d.winner)}</span><span class="delta ${d.loser >= 0 ? "p" : "n"}">${esc(name(m.loser))} ${signed(d.loser)}</span>`;
+    }
+    const st = { pending: '<span class="tag clay">pendiente</span>', vote: '<span class="tag clay">en votación</span>', rejected: '<span class="tag clay">en disputa</span>', postponed: '<span class="tag clay">aplazado</span>', vote_failed: '<span class="tag clay">no convalidado</span>', annulled: `<span class="tag clay">anulado${m.annulReason === "trampa" ? " por trampa" : ""}</span>` }[m.status] || "";
+    const extra = m.confirmedHow === "auto" ? '<span class="tag bonus">auto 48 h</span>' : m.confirmedHow === "votacion" ? '<span class="tag bonus">convalidado</span>' : "";
+    const above = d?.above ? `<span class="tag dinner">ganó a uno de arriba</span>` : "";
+    const photo = m.photo ? `<img class="thumb" loading="lazy" src="/api/photo/${m.id}" data-photo="${m.id}" alt="Foto">` : "";
+    const canVote = S.me && m.status === "postponed" && (m.winner === S.me.id || m.loser === S.me.id);
+    return `<div class="match">
+      <div><b>${esc(name(m.winner))}</b> <span class="muted">gana a</span> <b>${esc(name(m.loser))}</b> ${st}${extra}${above}</div>
+      <div class="score">${esc(score(m.sets))}</div>
+      <div class="meta">${photo}<span>${esc(venueOf(m))}</span><span>· ${when(m.confirmedAt || m.createdAt)}</span>${deltas}${m.incomplete ? "<span>· sin terminar</span>" : ""}${m.note ? `<span>· “${esc(m.note)}”</span>` : ""}
+      ${canVote ? `<button class="btn sm sec" data-reqvote="${m.id}">Pedir convalidación</button> <button class="btn sm sec" data-cancel2="${m.id}">Ya lo hemos acabado</button>` : ""}</div>
+    </div>`;
+  }).join("");
+}
+
+function viewMatches() {
+  const by = (s) => S.matches.filter((m) => m.status === s).sort((a, b) => (b.confirmedAt || b.createdAt) - (a.confirmedAt || a.createdAt));
+  const sec = (title, ms, help) => ms.length ? `<div class="card"><h2>${title}</h2>${help ? `<p class="small muted" style="margin-top:-4px">${help}</p>` : ""}${matchList(ms)}</div>` : "";
+  const html =
+    sec("Pendientes de confirmar", by("pending"), "Si el rival no responde en 48 h, se confirma solo.") +
+    sec("En votación", by("vote"), "Partidos sin terminar. Se convalidan por mayoría del resto.") +
+    sec("En disputa", by("rejected"), "El rival no estaba de acuerdo. Lo resuelve el admin.") +
+    sec("Aplazados", by("postponed"), "Los acabáis otro día y apuntáis el resultado final.") +
+    sec("Jugados", by("confirmed")) +
+    sec("Anulados", [...by("annulled"), ...by("vote_failed")]);
+  return html || `<div class="card empty">Todavía no hay partidos. Dale al botón de abajo cuando juguéis el primero.</div>`;
+}
+
+function viewPlayer() {
+  if (!selected) selected = S.me?.id || S.standings[0]?.id;
+  const id = selected;
+  const r = S.standings.find((x) => x.id === id);
+  if (!r) return "";
+  const ms = confirmed().filter((m) => m.winner === id || m.loser === id);
+  const best = ms.reduce((b, m) => { const v = deltaFor(m, id); return v > (b?.v ?? -1e9) ? { m, v } : b; }, null);
+  const h2h = {};
+  for (const m of ms) {
+    const opp = m.winner === id ? m.loser : m.winner;
+    const o = (h2h[opp] = h2h[opp] || { w: 0, l: 0, sw: 0, sl: 0, pts: 0 });
+    const won = m.winner === id;
+    won ? o.w++ : o.l++;
+    for (const [a, b] of m.sets) { const mine = won ? a : b, theirs = won ? b : a; if (mine > theirs) o.sw++; else o.sl++; }
+    o.pts += deltaFor(m, id) || 0;
+  }
+  const venues = {};
+  for (const m of ms) { const v = venueOf(m); venues[v] = venues[v] || { w: 0, n: 0 }; venues[v].n++; if (m.winner === id) venues[v].w++; }
+  const adj = S.ledger.filter((e) => e.playerId === id && !e.matchId || (e.playerId === id && /anulado|Sanción/.test(e.reason)));
+  const winPct = r.pj ? Math.round((r.pg / r.pj) * 100) : 0;
+  const opts = S.players.map((p) => `<option value="${p.id}" ${p.id === id ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const canChallenge = S.me && S.me.id !== id;
+  return `
+  <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap">
+    <select class="pick" id="pick">${opts}</select>
+    ${canChallenge ? `<button class="btn sec" id="challenge">Retar a ${esc(name(id))}</button>` : ""}
+  </div>
+  <div class="card">
+    <h2 style="display:flex;align-items:center">${avatar(r.id, 'lg')}<span>${esc(r.name)}</span>&nbsp;<span class="muted" style="font-size:15px;font-family:'DM Sans'">· ${r.pos}º${r.pos <= 3 && ms.length ? ' <span class="tag dinner">cena</span>' : ""}</span></h2>
+    <div class="grid">
+      <div class="stat"><div class="v">${fmt(r.pts)}</div><div class="k">Puntos</div></div>
+      <div class="stat"><div class="v">${r.pg}-${r.pp}</div><div class="k">Victorias-Derrotas</div></div>
+      <div class="stat"><div class="v">${winPct}%</div><div class="k">% victorias</div></div>
+      <div class="stat"><div class="v">${r.setsW}-${r.setsL}</div><div class="k">Sets</div></div>
+      <div class="stat"><div class="v">${r.gamesW}-${r.gamesL}</div><div class="k">Juegos</div></div>
+      <div class="stat"><div class="v">${streak(id)}</div><div class="k">Racha</div></div>
+    </div>
+    <p class="small muted" style="margin:12px 0 0">${r.pj >= S.rules.participationMin && r.pj <= S.rules.participationMax ? "Ya tiene el bonus de participación (+7 al cierre)." : r.pj < S.rules.participationMin ? `Le faltan ${S.rules.participationMin - r.pj} partidos para el bonus de participación.` : "Ha pasado de 15 partidos, sin bonus de participación."}
+    ${best ? ` Su mejor partido: ${signed(best.v)} pts contra ${esc(name(best.m.winner === id ? best.m.loser : best.m.winner))}.` : ""}</p>
+  </div>
+  ${ms.length ? `<div class="card chart"><h2>Sus puntos</h2>${pointsChart(id)}</div>` : ""}
+  <div class="card"><h2>Cara a cara</h2>${Object.keys(h2h).length ? `<table class="h2h"><tr><th>Rival</th><th>G-P</th><th>Sets</th><th>Pts sacados</th></tr>${Object.entries(h2h).sort((a, b) => (b[1].w - b[1].l) - (a[1].w - a[1].l)).map(([o, x]) => `<tr><td>${esc(name(o))}</td><td><b>${x.w}-${x.l}</b></td><td>${x.sw}-${x.sl}</td><td>${signed(x.pts)}</td></tr>`).join("")}</table>` : '<div class="empty">Sin partidos todavía</div>'}</div>
+  ${Object.keys(venues).length ? `<div class="card"><h2>Por pista</h2><table class="h2h">${Object.entries(venues).map(([v, x]) => `<tr><td>${esc(v)}</td><td>${x.n} ${x.n === 1 ? "partido" : "partidos"}</td><td>${x.w} ${x.w === 1 ? "ganado" : "ganados"}</td></tr>`).join("")}</table></div>` : ""}
+  <div class="card"><h2>Partidos</h2>${matchList(ms, id) || '<div class="empty">Nada todavía</div>'}</div>
+  ${adj.length ? `<div class="card"><h2>Ajustes y sanciones</h2>${adj.map((e) => `<div class="match"><div>${esc(e.reason)}</div><div class="score delta ${e.pts >= 0 ? "p" : "n"}">${signed(e.pts)}</div></div>`).join("")}</div>` : ""}`;
+}
+
+function viewRules() {
+  const R = S.rules;
+  return `<div class="card rules"><h2>Cómo se puntúa</h2>
+  <p><b>Ganar:</b> ${R.win} puntos.</p>
+  <p><b>Ganar a alguien que está por encima:</b> ${R.win} puntos más el ${R.abovePct * 100}% de los puntos que tiene él, y él pierde ese ${R.abovePct * 100}%. "Por encima" se mira con la clasificación en el momento en que se confirma el partido, y esos puntos quedan fijados.</p>
+  <p><b>Perder:</b> ${R.loss} puntos por jugar, que se valora.</p>
+  <p><b>Participación:</b> si al acabar la temporada has jugado entre ${R.participationMin} y ${R.participationMax} partidos, se te suman ${R.participationBonus} puntos.</p>
+  <p><b>Todos empezamos en 0</b>, así las victorias pesan más.</p>
+  <p><b>Empate a puntos:</b> manda el cara a cara entre los empatados.</p>
+  <p><b>Cena:</b> los 3 primeros al final de la temporada.</p></div>
+  <div class="card rules"><h2>Cómo se apunta un partido</h2>
+  <p>Cualquiera de los dos lo apunta en la web con el resultado, la pista y, si quiere, una foto. Al otro le llega un correo para confirmarlo. Cuando lo confirma, se actualiza la clasificación y nos llega el correo a todos.</p>
+  <p>Si el rival no contesta en ${R.autoConfirmHours} horas, se da por confirmado. Si no está de acuerdo, queda en disputa y lo resuelve el admin.</p>
+  <p><b>Partido sin terminar:</b> o se pide que el resto lo convalidemos (mayoría simple de los que no jugaron; si en ${R.voteHours} h no hay mayoría, gana lo que más se haya votado) o se queda aplazado para acabarlo otro día.</p></div>
+  <div class="card rules"><h2>Trampas</h2>
+  <p>Si dos se inventan un resultado para beneficiar a uno, el partido se anula. El que se chiva pierde solo ${Math.abs(R.snitchPenalty)} puntos y el que no ha dicho nada pierde lo que sumó y ${Math.abs(R.cheatPenalty)} más.</p></div>`;
+}
+
+/* ---------- admin ---------- */
+function viewAdmin() {
+  const players = S.players.map((p, i) => `<div class="admin-row" data-row="${i}">
+    <input class="inp" data-f="name" value="${esc(p.name)}" data-id="${p.id}">
+    <input class="inp" data-f="email" type="email" placeholder="correo@..." value="${esc(p.email || "")}">
+    <label class="small"><input type="checkbox" data-f="admin" ${p.admin ? "checked" : ""}> admin</label></div>`).join("");
+  const open = S.matches.filter((m) => ["pending", "rejected", "vote", "vote_failed"].includes(m.status));
+  const done = confirmed();
+  const mOpts = (ms) => ms.map((m) => `<option value="${m.id}">${esc(name(m.winner))} gana a ${esc(name(m.loser))} ${esc(score(m.sets))} · ${when(m.confirmedAt || m.createdAt)}</option>`).join("");
+  const pOpts = S.players.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  return `
+  ${S.mailReady ? "" : `<div class="alert"><h3>Falta configurar el correo</h3>Añade GMAIL_USER y GMAIL_APP_PASSWORD en Netlify y vuelve a desplegar. Hasta entonces nadie puede entrar ni recibe avisos.</div>`}
+  <div class="card"><h2>Jugadores y correos</h2>
+    <div id="players">${players}</div>
+    <div class="actions" style="justify-content:space-between"><button class="btn sec sm" id="add-player">Añadir jugador</button><button class="btn" id="save-players">Guardar</button></div>
+  </div>
+  <div class="card"><h2>Partidos abiertos</h2>
+    ${open.length ? `<div class="field"><select class="inp" id="open-m">${mOpts(open)}</select></div><div class="actions"><button class="btn" data-admin="forceConfirm" data-src="open-m">Confirmar igualmente</button><button class="btn red" data-admin="cancel" data-src="open-m">Borrar</button></div>` : '<div class="muted">Nada abierto.</div>'}
+  </div>
+  <div class="card"><h2>Partidos jugados</h2>
+    ${done.length ? `<div class="field"><select class="inp" id="done-m">${mOpts(done)}</select></div>
+    <div class="actions"><button class="btn sec" data-admin="annul" data-src="done-m">Anular (error)</button></div>
+    <details class="sub"><summary>Sancionar por trampa</summary>
+      <p class="small muted">Se anula el partido. El chivato pierde 5 y el otro pierde lo que sumó y 10 más.</p>
+      <div class="field"><label>¿Quién se ha chivado?</label><select class="inp" id="snitch"></select></div>
+      <div class="actions"><button class="btn red" id="cheat">Aplicar sanción</button></div>
+    </details>` : '<div class="muted">Aún no hay partidos jugados.</div>'}
+  </div>
+  <div class="card"><h2>Ajuste manual de puntos</h2>
+    <div class="field"><select class="inp" id="adj-p">${pOpts}</select></div>
+    <div class="field" style="display:flex;gap:8px"><input class="inp" id="adj-n" type="number" step="0.1" placeholder="+/- puntos" style="max-width:140px"><input class="inp" id="adj-r" placeholder="Motivo"></div>
+    <div class="actions"><button class="btn" id="adj">Aplicar</button></div>
+  </div>
+  <div class="card"><h2>Temporada</h2>
+    <div class="field" style="display:flex;gap:8px"><input class="inp" id="season-name" value="${esc(S.season.name)}"><button class="btn sec" id="rename">Renombrar</button></div>
+    <div class="actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="btn sec" id="test-mail">Enviarme correo de prueba</button>
+      <button class="btn sec" id="weekly">Mandar resumen a todos</button>
+      <button class="btn red" id="close-season" ${S.season.closed ? "disabled" : ""}>${S.season.closed ? "Temporada cerrada" : "Cerrar temporada y dar bonus"}</button>
+    </div>
+  </div>`;
+}
+
+async function adminOp(body, okMsg) {
+  try { const r = await post("admin", body); if (r.state) S = r.state; render(); toast(okMsg || "Hecho"); }
+  catch (e) { toast(e.message); }
+}
+
+function bindAdmin() {
+  const v = $("#view");
+  $("#add-player", v)?.addEventListener("click", () => {
+    const d = document.createElement("div");
+    d.className = "admin-row";
+    d.innerHTML = `<input class="inp" data-f="name" placeholder="Nombre"><input class="inp" data-f="email" type="email" placeholder="correo@..."><label class="small"><input type="checkbox" data-f="admin"> admin</label>`;
+    $("#players").appendChild(d);
+  });
+  $("#save-players", v)?.addEventListener("click", () => {
+    const players = [...v.querySelectorAll(".admin-row")].map((row) => ({
+      id: row.querySelector('[data-f="name"]').dataset.id || undefined,
+      name: row.querySelector('[data-f="name"]').value,
+      email: row.querySelector('[data-f="email"]').value,
+      admin: row.querySelector('[data-f="admin"]').checked,
+    }));
+    adminOp({ op: "savePlayers", players }, "Jugadores guardados");
+  });
+  v.querySelectorAll("[data-admin]").forEach((b) => b.addEventListener("click", async () => {
+    const id = $("#" + b.dataset.src).value;
+    const op = b.dataset.admin;
+    if (!confirm("¿Seguro?")) return;
+    if (op === "cancel") { try { const r = await post(`match/${id}/cancel`); S = r.state; render(); toast("Borrado"); } catch (e) { toast(e.message); } return; }
+    adminOp({ op, matchId: id });
+  }));
+  const fillSnitch = () => {
+    const sel = $("#done-m"); const sn = $("#snitch");
+    if (!sel || !sn) return;
+    const m = S.matches.find((x) => x.id === sel.value);
+    sn.innerHTML = [m.winner, m.loser].map((p) => `<option value="${p}">${esc(name(p))}</option>`).join("");
+  };
+  $("#done-m", v)?.addEventListener("change", fillSnitch); fillSnitch();
+  $("#cheat", v)?.addEventListener("click", () => { if (confirm("¿Aplicar sanción por trampa?")) adminOp({ op: "cheat", matchId: $("#done-m").value, snitchId: $("#snitch").value }, "Sanción aplicada"); });
+  $("#adj", v)?.addEventListener("click", () => adminOp({ op: "adjust", playerId: $("#adj-p").value, pts: $("#adj-n").value, reason: $("#adj-r").value }, "Ajuste aplicado"));
+  $("#rename", v)?.addEventListener("click", () => adminOp({ op: "renameSeason", name: $("#season-name").value }));
+  $("#test-mail", v)?.addEventListener("click", () => adminOp({ op: "testMail" }, "Correo enviado, mira tu bandeja"));
+  $("#weekly", v)?.addEventListener("click", () => { if (confirm("¿Mandar el resumen a todos ahora?")) adminOp({ op: "weekly" }, "Resumen enviado"); });
+  $("#close-season", v)?.addEventListener("click", () => { if (confirm("Se suman los +7 de participación y la temporada queda cerrada. ¿Seguro?")) adminOp({ op: "closeSeason" }, "Temporada cerrada"); });
+}
+
+function bindView() {
+  const v = $("#view");
+  v.querySelectorAll("[data-player]").forEach((el) => el.addEventListener("click", () => { selected = el.dataset.player; tab = "player"; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }));
+  v.querySelectorAll("[data-series]").forEach((el) => el.addEventListener("click", () => { const id = el.dataset.series; hiddenSeries.has(id) ? hiddenSeries.delete(id) : hiddenSeries.add(id); render(); }));
+  v.querySelectorAll("[data-photo]").forEach((el) => el.addEventListener("click", () => openDialog(`<img class="photo-full" src="/api/photo/${el.dataset.photo}" alt="Foto del partido"><div class="actions"><button class="btn sec" data-close>Cerrar</button></div>`)));
+  v.querySelectorAll("[data-reqvote]").forEach((el) => el.addEventListener("click", async () => { try { const r = await post(`match/${el.dataset.reqvote}/request-vote`); S = r.state; render(); toast("Enviado al rival para que lo confirme y vaya a votación"); } catch (e) { toast(e.message); } }));
+  v.querySelectorAll("[data-cancel2]").forEach((el) => el.addEventListener("click", () => cancelMatch(el.dataset.cancel2)));
+  $("#pick", v)?.addEventListener("change", (e) => { selected = e.target.value; render(); });
+  $("#challenge", v)?.addEventListener("click", () => openChallenge(selected));
+  if (tab === "admin") bindAdmin();
+}
+
+/* ---------- diálogos ---------- */
+function openDialog(html) {
+  const d = $("#dlg");
+  $("#dlg-body").innerHTML = html;
+  d.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => d.close()));
+  if (!d.open) d.showModal();
+}
+$("#dlg").addEventListener("click", (e) => { if (e.target.id === "dlg") e.target.close(); });
+
+function openLogin() {
+  openDialog(`<h2>Entrar</h2>
+  <p class="muted" style="margin-top:-6px">Pon tu correo y te llega un enlace para entrar. Sin contraseñas.</p>
+  <div class="field"><input class="inp" id="email" type="email" autocomplete="email" placeholder="tu@correo.com"></div>
+  <div class="err" id="lerr"></div>
+  <div class="actions"><button class="btn sec" data-close>Cancelar</button><button class="btn" id="lgo">Enviarme el enlace</button></div>`);
+  const go = async () => {
+    const b = $("#lgo"); b.disabled = true; $("#lerr").textContent = "";
+    try { await post("login", { email: $("#email").value }); $("#dlg-body").innerHTML = `<h2>Mira tu correo</h2><p>Te hemos mandado un enlace para entrar. Ábrelo desde este mismo móvil u ordenador.</p><div class="actions"><button class="btn" data-close>Vale</button></div>`; $("#dlg-body [data-close]").addEventListener("click", () => $("#dlg").close()); }
+    catch (e) { $("#lerr").textContent = e.message; b.disabled = false; }
+  };
+  $("#lgo").addEventListener("click", go);
+  $("#email").addEventListener("keydown", (e) => e.key === "Enter" && go());
+  setTimeout(() => $("#email")?.focus(), 50);
+}
+
+function openChallenge(oppId) {
+  openDialog(`<h2>Retar a ${esc(name(oppId))}</h2>
+  <div class="field"><textarea class="inp" id="cmsg" rows="3" placeholder="¿Jueves por la tarde en El Polo?"></textarea></div>
+  <div class="err" id="cerr"></div>
+  <div class="actions"><button class="btn sec" data-close>Cancelar</button><button class="btn" id="cgo">Enviar reto</button></div>`);
+  $("#cgo").addEventListener("click", async () => {
+    try { await post("challenge", { opponent: oppId, message: $("#cmsg").value }); $("#dlg").close(); toast(`Reto enviado a ${name(oppId)}`); }
+    catch (e) { $("#cerr").textContent = e.message; }
+  });
+}
+
+function previewPoints(meId, oppId, result) {
+  const pts = Object.fromEntries(S.standings.map((r) => [r.id, r.pts]));
+  const w = result === "win" ? meId : oppId, l = result === "win" ? oppId : meId;
+  const wp = pts[w] || 0, lp = pts[l] || 0;
+  if (lp > wp) { const b = Math.round(lp * S.rules.abovePct * 10) / 10; return { w, l, wd: S.rules.win + b, ld: S.rules.loss - b, above: true, b }; }
+  return { w, l, wd: S.rules.win, ld: S.rules.loss, above: false };
+}
+
+function openReport() {
+  if (!S.me) { openLogin(); return; }
+  const others = S.players.filter((p) => p.id !== S.me.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const f = { result: "win", venue: S.venues[0], incomplete: false, mode: "vote" };
+  openDialog(`<h2>Apuntar partido</h2>
+  <div class="field"><div class="seg" id="res"><button data-v="win" class="on win">He ganado</button><button data-v="loss" class="loss">He perdido</button></div></div>
+  <div class="field"><label>Contra</label><select class="inp" id="opp"><option value="">Elige rival</option>${others.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>Resultado</label>
+    <div class="sets"><span></span><span class="h">Yo</span><span class="h">Rival</span>
+    ${[1, 2, 3].map((i) => `<span class="small muted">Set ${i}${i === 3 ? " (si hubo)" : ""}</span><input inputmode="numeric" maxlength="2" data-set="${i}" data-side="a"><input inputmode="numeric" maxlength="2" data-set="${i}" data-side="b">`).join("")}
+    </div></div>
+  <div class="field"><label>Dónde</label><div class="chips" id="venues">${[...S.venues, "Otra"].map((v, i) => `<button data-v="${esc(v)}" class="${i === 0 ? "on" : ""}">${esc(v)}</button>`).join("")}</div>
+    <input class="inp" id="vother" placeholder="Nombre de la pista" style="margin-top:8px" hidden></div>
+  <div class="field" style="display:flex;gap:10px">
+    <div style="flex:1"><label class="small" style="font-weight:600">Día</label><input class="inp" type="date" id="date" value="${today}" max="${today}"></div>
+    <div style="flex:1"><label class="small" style="font-weight:600">Foto (opcional)</label><input class="inp" type="file" id="photo" accept="image/*"></div>
+  </div>
+  <div class="field"><label class="check"><input type="checkbox" id="inc"><span>El partido no se terminó</span></label>
+    <div id="incbox" hidden style="margin-top:8px">
+      <div class="seg" id="mode"><button data-v="vote" class="on">Pedir convalidación</button><button data-v="postpone">Lo acabamos otro día</button></div>
+      <p class="small muted" id="modehelp" style="margin:6px 2px 0"></p>
+    </div></div>
+  <div class="field"><input class="inp" id="note" maxlength="200" placeholder="Comentario (opcional)"></div>
+  <div class="preview" id="prev" hidden></div>
+  <div class="err" id="rerr"></div>
+  <div class="actions"><button class="btn sec" data-close>Cancelar</button><button class="btn" id="send">Enviar</button></div>`);
+
+  const upd = () => {
+    const opp = $("#opp").value;
+    const help = { vote: "Tu rival lo confirma y luego votamos el resto. Si sale que sí, cuenta como victoria normal para quien marques como ganador.", postpone: "Se guarda como aplazado, sin puntos. Cuando lo acabéis, apuntáis el resultado final." };
+    $("#modehelp").textContent = help[f.mode];
+    const p = $("#prev");
+    if (!opp || (f.incomplete && f.mode === "postpone")) { p.hidden = true; return; }
+    const x = previewPoints(S.me.id, opp, f.result);
+    p.hidden = false;
+    p.innerHTML = `Si se confirma: <b>${esc(name(x.w))} ${signed(x.wd)}</b> · ${esc(name(x.l))} ${signed(x.ld)}${x.above ? `<br><span class="small">Gana a alguien de arriba: +${fmt(x.b)} extra</span>` : ""}`;
+  };
+  const seg = (sel, key, after) => $(sel).querySelectorAll("button").forEach((b) => b.addEventListener("click", (e) => {
+    e.preventDefault(); f[key] = b.dataset.v;
+    $(sel).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); after && after(); upd();
+  }));
+  seg("#res", "result");
+  seg("#mode", "mode");
+  $("#venues").querySelectorAll("button").forEach((b) => b.addEventListener("click", (e) => {
+    e.preventDefault(); f.venue = b.dataset.v;
+    $("#venues").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    $("#vother").hidden = f.venue !== "Otra";
+  }));
+  $("#opp").addEventListener("change", upd);
+  $("#inc").addEventListener("change", (e) => { f.incomplete = e.target.checked; $("#incbox").hidden = !f.incomplete; upd(); });
+  document.querySelectorAll("[data-set]").forEach((inp) => inp.addEventListener("input", () => {
+    inp.value = inp.value.replace(/\D/g, "");
+    if (inp.value.length >= 1 && Number(inp.value) <= 7 && inp.dataset.side === "a") inp.nextElementSibling?.focus();
+  }));
+  upd();
+
+  $("#send").addEventListener("click", async () => {
+    const err = $("#rerr"); err.textContent = "";
+    const sets = [1, 2, 3].map((i) => [$(`[data-set="${i}"][data-side="a"]`).value, $(`[data-set="${i}"][data-side="b"]`).value]).filter(([a, b]) => a !== "" && b !== "");
+    if (!$("#opp").value) { err.textContent = "Elige contra quién has jugado"; return; }
+    if (!sets.length) { err.textContent = "Pon el resultado de al menos un set"; return; }
+    if (f.venue === "Otra" && !$("#vother").value.trim()) { err.textContent = "Escribe el nombre de la pista"; return; }
+    const fd = new FormData();
+    fd.append("opponent", $("#opp").value);
+    fd.append("result", f.result);
+    fd.append("sets", JSON.stringify(sets));
+    fd.append("venue", f.venue);
+    fd.append("venueOther", $("#vother").value);
+    fd.append("playedOn", $("#date").value);
+    fd.append("incomplete", String(f.incomplete));
+    fd.append("mode", f.mode);
+    fd.append("note", $("#note").value);
+    const file = $("#photo").files[0];
+    const b = $("#send"); b.disabled = true; b.textContent = "Enviando…";
+    try {
+      if (file) fd.append("photo", await shrink(file), "foto.jpg");
+      const r = await api("report", { method: "POST", body: fd });
+      S = r.state; render(); $("#dlg").close();
+      toast(f.incomplete && f.mode === "postpone" ? "Guardado como aplazado" : `Enviado. ${name($("#opp").value) || "Tu rival"} tiene que confirmarlo`);
+    } catch (e) { err.textContent = e.message; b.disabled = false; b.textContent = "Enviar"; }
+  });
+}
+
+// Reduce la foto en el móvil antes de subirla
+function shrink(file, max = 1400) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob((b) => resolve(b || file), "image/jpeg", 0.78);
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ---------- arranque ---------- */
+$("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (!b) return; tab = b.dataset.tab; render(); });
+$("#fab").addEventListener("click", openReport);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+setInterval(() => { if (!document.hidden && !$("#dlg").open) refresh(); }, 20000);
+refresh().then(() => {
+  const q = new URLSearchParams(location.search);
+  if (q.get("entrado")) { toast(`Dentro${S.me ? ", " + S.me.name : ""}`); history.replaceState(null, "", "/"); }
+});
+</script>
+</body>
+</html>
