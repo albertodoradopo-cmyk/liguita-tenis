@@ -4,8 +4,8 @@ import { mailConfigured, send, layout, esc } from "../lib/mail.mjs";
 import * as N from "../lib/notify.mjs";
 import { HttpError, applyAction, statusMsg, sendNotifications } from "../lib/flow.mjs";
 import {
-  standings, normalizeReport, confirmMatch, applyCheat, annulMatch, closeSeason, backfillBagels,
-  playerById, uid, round1, scoreText, VENUES, RULES,
+  standings, normalizeReport, confirmMatch, applyCheat, annulMatch, closeSeason, recalculate,
+  playerById, uid, round1, scoreText, VENUES, RULES, RULES_VERSION,
 } from "../lib/league.mjs";
 
 const json = (data, status = 200) => Response.json(data, { status });
@@ -89,7 +89,11 @@ export default async (req, context) => {
     if (path === "act") return await handleAct(req, origin);
 
     if (path === "state" && req.method === "GET") {
-      const { state } = await loadState();
+      let { state } = await loadState();
+      // Reglas de puntos nuevas: recalcula toda la liga una sola vez (luego ya no entra aquí)
+      if (state.baseUrl && (state.rulesVersion || 1) < RULES_VERSION) {
+        ({ state } = await mutate((s) => { if ((s.rulesVersion || 1) < RULES_VERSION) recalculate(s); }));
+      }
       const me = await sessionPlayer(context, state);
       return json(publicState(state, me));
     }
@@ -252,11 +256,7 @@ export default async (req, context) => {
             return [];
           }
           case "closeSeason": closeSeason(s); return [];
-          case "backfillBagels": {
-            const n = backfillBagels(s);
-            if (!n) throw new HttpError("No hay partidos anteriores con sets a 0 pendientes");
-            return [];
-          }
+          case "recalculate": recalculate(s); return [];
           case "renameSeason": s.season.name = String(body.name || s.season.name).slice(0, 60); return [];
           case "weekly": return [["weekly"]];
           default: throw new HttpError("Operación desconocida");

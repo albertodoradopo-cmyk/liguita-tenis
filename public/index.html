@@ -444,7 +444,7 @@ function viewRules() {
   <div class="card rules"><h2>Cómo se apunta un partido</h2>
   <p>Cualquiera de los dos lo apunta en la web con el resultado, la pista y, si quiere, una foto. Al otro le llega un correo para confirmarlo. Cuando lo confirma, se actualiza la clasificación y nos llega el correo a todos.</p>
   <p>Si el rival no contesta en ${R.autoConfirmHours} horas, se da por confirmado. Si no está de acuerdo, queda en disputa y lo resuelve el admin.</p>
-  <p><b>Partido sin terminar:</b> tres opciones. Se puede dar por <b>ganado por juegos</b> al que iba por delante en juegos: el rival lo confirma y cuenta como una victoria normal. O se pide que el resto lo convalidemos (mayoría simple de los que no jugaron; si en ${R.voteHours} h no hay mayoría, gana lo que más se haya votado) o se queda aplazado para acabarlo otro día.</p></div>
+  <p><b>Partido sin terminar:</b> tres opciones. Se puede dar por <b>ganado por juegos</b> al que iba por delante en juegos: el rival lo confirma y el ganador suma ${R.gamesWin} puntos en vez de ${R.win} (más el ${R.abovePct * 100}% si el rival estaba por encima). O se pide que el resto lo convalidemos (mayoría simple de los que no jugaron; si en ${R.voteHours} h no hay mayoría, gana lo que más se haya votado) o se queda aplazado para acabarlo otro día.</p></div>
   <div class="card rules"><h2>Trampas</h2>
   <p>Si dos se inventan un resultado para beneficiar a uno, el partido se anula. El que se chiva pierde solo ${Math.abs(R.snitchPenalty)} puntos y el que no ha dicho nada pierde lo que sumó y ${Math.abs(R.cheatPenalty)} más.</p></div>`;
 }
@@ -486,16 +486,11 @@ function viewAdmin() {
     <div class="field" style="display:flex;gap:8px"><input class="inp" id="season-name" value="${esc(S.season.name)}"><button class="btn sec" id="rename">Renombrar</button></div>
     <div class="actions" style="justify-content:flex-start;flex-wrap:wrap">
       <button class="btn sec" id="test-mail">Enviarme correo de prueba</button>
-      ${pendingBagels() ? `<button class="btn sec" id="backfill">Dar bonus de sets a 0 a partidos anteriores (${pendingBagels()})</button>` : ""}
+      <button class="btn sec" id="recalc">Recalcular toda la liga</button>
       <button class="btn sec" id="weekly">Mandar resumen a todos</button>
       <button class="btn red" id="close-season" ${S.season.closed ? "disabled" : ""}>${S.season.closed ? "Temporada cerrada" : "Cerrar temporada y dar bonus"}</button>
     </div>
   </div>`;
-}
-
-// Partidos confirmados antes de la regla del set a 0 que tienen algún 6-0 sin bonus
-function pendingBagels() {
-  return confirmed().filter((m) => m.deltas && m.deltas.bagelsW === undefined && (bagels(m.sets).w + bagels(m.sets).l) > 0).length;
 }
 
 async function adminOp(body, okMsg) {
@@ -539,7 +534,7 @@ function bindAdmin() {
   $("#rename", v)?.addEventListener("click", () => adminOp({ op: "renameSeason", name: $("#season-name").value }));
   $("#test-mail", v)?.addEventListener("click", () => adminOp({ op: "testMail" }, "Correo enviado, mira tu bandeja"));
   $("#weekly", v)?.addEventListener("click", () => { if (confirm("¿Mandar el resumen a todos ahora?")) adminOp({ op: "weekly" }, "Resumen enviado"); });
-  $("#backfill", v)?.addEventListener("click", () => { if (confirm("Se suman +2 por cada set ganado a 0 en los partidos ya confirmados antes de esta regla. ¿Seguro?")) adminOp({ op: "backfillBagels" }, "Bonus aplicado"); });
+  $("#recalc", v)?.addEventListener("click", () => { if (confirm("Se vuelven a calcular todos los partidos con las reglas actuales. Los ajustes manuales y sanciones se mantienen. ¿Seguro?")) adminOp({ op: "recalculate" }, "Liga recalculada"); });
   $("#close-season", v)?.addEventListener("click", () => { if (confirm("Se suman los +7 de participación y la temporada queda cerrada. ¿Seguro?")) adminOp({ op: "closeSeason" }, "Temporada cerrada"); });
 }
 
@@ -677,12 +672,13 @@ function openChallenge(oppId) {
   });
 }
 
-function previewPoints(meId, oppId, result) {
+function previewPoints(meId, oppId, result, games) {
   const pts = Object.fromEntries(S.standings.map((r) => [r.id, r.pts]));
   const w = result === "win" ? meId : oppId, l = result === "win" ? oppId : meId;
   const wp = pts[w] || 0, lp = pts[l] || 0;
-  if (lp > wp) { const b = Math.round(lp * S.rules.abovePct * 10) / 10; return { w, l, wd: S.rules.win + b, ld: S.rules.loss - b, above: true, b }; }
-  return { w, l, wd: S.rules.win, ld: S.rules.loss, above: false };
+  const base = games ? S.rules.gamesWin : S.rules.win;
+  if (lp > wp) { const b = Math.round(lp * S.rules.abovePct * 10) / 10; return { w, l, wd: base + b, ld: S.rules.loss - b, above: true, b }; }
+  return { w, l, wd: base, ld: S.rules.loss, above: false };
 }
 
 function openReport() {
@@ -715,11 +711,11 @@ function openReport() {
 
   const upd = () => {
     const opp = $("#opp").value;
-    const help = { games: "Gana quien iba por delante en juegos. Marca arriba si has ganado o perdido y pon el resultado tal cual quedó (ej. 6-3 3-1). Tu rival lo confirma y cuenta como victoria normal.", vote: "Tu rival lo confirma y luego votamos el resto. Si sale que sí, cuenta como victoria normal para quien marques como ganador.", postpone: "Se guarda como aplazado, sin puntos. Cuando lo acabéis, apuntáis el resultado final." };
+    const help = { games: `Gana quien iba por delante en juegos. Marca arriba si has ganado o perdido y pon el resultado tal cual quedó (ej. 6-3 3-1). Tu rival lo confirma y el ganador suma ${S.rules.gamesWin} puntos en vez de ${S.rules.win}.`, vote: "Tu rival lo confirma y luego votamos el resto. Si sale que sí, cuenta como victoria normal para quien marques como ganador.", postpone: "Se guarda como aplazado, sin puntos. Cuando lo acabéis, apuntáis el resultado final." };
     $("#modehelp").textContent = help[f.mode];
     const p = $("#prev");
     if (!opp || (f.incomplete && f.mode === "postpone")) { p.hidden = true; return; }
-    const x = previewPoints(S.me.id, opp, f.result);
+    const x = previewPoints(S.me.id, opp, f.result, f.incomplete && f.mode === "games");
     // sets que ha metido: [yo, rival] -> perspectiva del ganador
     const mine = [1, 2, 3].map((i) => [Number($(`[data-set="${i}"][data-side="a"]`).value), Number($(`[data-set="${i}"][data-side="b"]`).value)])
       .filter((_, i) => $(`[data-set="${i + 1}"][data-side="a"]`).value !== "" && $(`[data-set="${i + 1}"][data-side="b"]`).value !== "");

@@ -87,16 +87,43 @@ console.log("OK: todas las reglas pasan");
   assert.throws(() => L.normalizeReport({ reporterId: "a", opponentId: "b", result: "win", sets: [[3, 3], [6, 2]], incomplete: true, mode: "games" }));
 }
 
-// 10. Backfill de partidos viejos (sin campo de roscos): idempotente
+// 10. Por juegos vale 7 (+10% si el rival está arriba)
 {
   const v = L.emptyState();
-  const old = { id: "o1", winner: "barru", loser: "cacha", sets: [[6, 0], [6, 0]], status: "confirmed", deltas: { above: false, bonus: 0, winner: 10, loser: 3 } };
-  v.matches.push(old);
-  v.ledger.push({ id: "x", ts: 1, playerId: "barru", pts: 10, matchId: "o1" }, { id: "y", ts: 1, playerId: "cacha", pts: 3, matchId: "o1" });
-  assert.equal(L.backfillBagels(v), 1);
-  assert.equal(L.pointsOf(v).barru, 14);
-  assert.equal(old.deltas.winner, 14);
-  assert.equal(L.backfillBagels(v), 0);
-  assert.equal(L.pointsOf(v).barru, 14);
+  const g = { id: "g1", winner: "erik", loser: "alfon", sets: [[6, 2], [3, 1]], incomplete: true, mode: "games", status: "p" };
+  v.matches.push(g); const d = L.confirmMatch(v, g);
+  assert.deepEqual([d.winner, d.loser], [7, 3]);
+}
+
+// 11. Recálculo de una liga ya jugada con reglas viejas (por juegos a 10, sin bonus de 6-0)
+{
+  const v = L.emptyState();
+  const mk = (id, w, l, sets, t, extra = {}) => ({ id, winner: w, loser: l, sets, status: "confirmed", confirmedAt: t, createdAt: t, confirmedHow: "rival", ...extra });
+  const m1 = mk("a", "alfon", "cucho", [[6, 0], [6, 2]], 100);
+  const m2 = mk("b", "erik", "alfon", [[6, 3], [3, 1]], 200, { incomplete: true, mode: "games" });
+  const m3 = mk("c", "puig", "jordi", [[6, 1], [6, 1]], 300, { status: "annulled", annulReason: "trampa" });
+  v.matches.push(m1, m2, m3);
+  // ledger tal como lo dejó la versión vieja
+  v.ledger.push(
+    { id: "1", ts: 100, playerId: "alfon", pts: 10, matchId: "a", reason: "Victoria" }, { id: "2", ts: 100, playerId: "cucho", pts: 3, matchId: "a", reason: "Derrota" },
+    { id: "3", ts: 200, playerId: "erik", pts: 11, matchId: "b", reason: "Victoria" }, { id: "4", ts: 200, playerId: "alfon", pts: 2, matchId: "b", reason: "Derrota" },
+    { id: "5", ts: 300, playerId: "puig", pts: 10, matchId: "c", reason: "Victoria" }, { id: "6", ts: 300, playerId: "jordi", pts: 3, matchId: "c", reason: "Derrota" },
+    { id: "7", ts: 400, playerId: "puig", pts: -10, matchId: "c", reason: "Partido anulado por trampa" }, { id: "8", ts: 400, playerId: "jordi", pts: -3, matchId: "c", reason: "Partido anulado por trampa" },
+    { id: "9", ts: 400, playerId: "jordi", pts: -5, matchId: "c", reason: "Sanción por trampa (se chivó)" }, { id: "10", ts: 400, playerId: "puig", pts: -10, matchId: "c", reason: "Sanción por trampa (no dijo nada)" },
+    { id: "11", ts: 500, playerId: "barru", pts: 4, reason: "Ajuste del admin" },
+  );
+  delete v.rulesVersion;
+  const diff = L.recalculate(v);
+  const p = L.pointsOf(v);
+  // Alfon: 10 + 2 (6-0) = 12; luego pierde contra Erik estando arriba: 3 - 1.2 = 1.8 -> 13.8
+  assert.equal(p.alfon, 13.8);
+  // Erik: 7 + 1.2 = 8.2 (antes 11)
+  assert.equal(p.erik, 8.2);
+  assert.equal(diff.erik, -2.8);
+  assert.equal(p.cucho, 3);
+  assert.equal(p.puig, -10); assert.equal(p.jordi, -5); assert.equal(p.barru, 4);
+  assert.equal(v.rulesVersion, L.RULES_VERSION);
+  // idempotente
+  L.recalculate(v); assert.deepEqual(L.pointsOf(v), p);
 }
 console.log("OK: reglas nuevas (set a 0, por juegos, backfill)");

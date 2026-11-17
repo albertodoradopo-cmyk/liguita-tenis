@@ -1,5 +1,5 @@
 import { mutate } from "../lib/store.mjs";
-import { confirmMatch, isGamesWin, RULES } from "../lib/league.mjs";
+import { confirmMatch, isGamesWin, recalculate, RULES, RULES_VERSION } from "../lib/league.mjs";
 import { resolveVote, sendNotifications } from "../lib/flow.mjs";
 import { weeklySummary } from "../lib/notify.mjs";
 
@@ -17,6 +17,11 @@ export default async () => {
   const { state, result } = await mutate((s) => {
     const out = [];
     if (!s.baseUrl) return out; // nadie ha usado la web aún
+    // Reglas de puntos nuevas: se recalcula toda la liga una vez
+    if ((s.rulesVersion || 1) < RULES_VERSION) {
+      const diff = recalculate(s);
+      console.log("Liga recalculada con reglas v" + RULES_VERSION, JSON.stringify(diff));
+    }
     for (const m of s.matches) {
       if (m.status === "pending" && now - m.createdAt > RULES.autoConfirmHours * 3600e3) {
         if (m.incomplete && !isGamesWin(m)) {

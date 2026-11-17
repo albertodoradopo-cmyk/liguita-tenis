@@ -5,6 +5,7 @@ export const VENUES = ["El Polo", "Tenis BCN"];
 
 export const RULES = {
   win: 10,            // victoria
+  gamesWin: 7,        // victoria por juegos (partido sin terminar)
   loss: 3,            // derrota (por jugar)
   abovePct: 0.10,     // % de los puntos del rival si está por encima
   participationMin: 7,
@@ -18,6 +19,9 @@ export const RULES = {
 };
 
 export const round1 = (x) => Math.round(x * 10) / 10;
+
+// Sube cuando cambian las reglas de puntos: el servidor recalcula toda la liga una vez.
+export const RULES_VERSION = 3;
 
 export function seedPlayers() {
   const roster = [
@@ -36,6 +40,7 @@ export function seedPlayers() {
 export function emptyState() {
   return {
     version: 1,
+    rulesVersion: RULES_VERSION,
     players: seedPlayers(),
     matches: [],
     ledger: [],
@@ -72,19 +77,20 @@ export function countBagels(sets) {
 }
 
 // Puntos que genera un partido según la clasificación del momento.
-export function computeDeltas(state, winnerId, loserId, sets) {
+export function computeDeltas(state, winnerId, loserId, sets, games = false) {
   const pts = pointsOf(state);
   const wp = pts[winnerId] || 0;
   const lp = pts[loserId] || 0;
   const bg = countBagels(sets);
   const bagelW = bg.w * RULES.bagelBonus;
   const bagelL = bg.l * RULES.bagelBonus;
-  const extra = { bagelsW: bg.w, bagelsL: bg.l, bagelW, bagelL };
+  const base = games ? RULES.gamesWin : RULES.win;
+  const extra = { base, bagelsW: bg.w, bagelsL: bg.l, bagelW, bagelL };
   if (lp > wp) {
     const bonus = round1(lp * RULES.abovePct);
-    return { above: true, bonus, ...extra, winner: round1(RULES.win + bonus + bagelW), loser: round1(RULES.loss - bonus + bagelL) };
+    return { above: true, bonus, ...extra, winner: round1(base + bonus + bagelW), loser: round1(RULES.loss - bonus + bagelL) };
   }
-  return { above: false, bonus: 0, ...extra, winner: RULES.win + bagelW, loser: RULES.loss + bagelL };
+  return { above: false, bonus: 0, ...extra, winner: base + bagelW, loser: RULES.loss + bagelL };
 }
 
 export function isGamesWin(m) {
@@ -96,7 +102,7 @@ export function scoreText(sets) {
 }
 
 export function confirmMatch(state, match, { now = Date.now(), how = "rival" } = {}) {
-  const d = computeDeltas(state, match.winner, match.loser, match.sets);
+  const d = computeDeltas(state, match.winner, match.loser, match.sets, isGamesWin(match));
   match.status = "confirmed";
   match.confirmedAt = now;
   match.confirmedHow = how; // rival | auto | votacion | admin
@@ -107,28 +113,34 @@ export function confirmMatch(state, match, { now = Date.now(), how = "rival" } =
   const rosco = (n) => (n ? `, +${n * RULES.bagelBonus} por ${n === 1 ? "set" : n + " sets"} a 0` : "");
   state.ledger.push(
     { id: uid("l"), ts: now, playerId: match.winner, pts: d.winner, matchId: match.id,
-      reason: (d.above ? `Victoria${how2} contra ${l} (de arriba: +10 y +${d.bonus}` : `Victoria${how2} contra ${l} (+10`) + rosco(d.bagelsW) + ")" },
+      reason: (d.above ? `Victoria${how2} contra ${l} (de arriba: +${d.base} y +${d.bonus}` : `Victoria${how2} contra ${l} (+${d.base}`) + rosco(d.bagelsW) + ")" },
     { id: uid("l"), ts: now, playerId: match.loser, pts: d.loser, matchId: match.id,
       reason: (d.above ? `Derrota contra ${w} (+3 y -${d.bonus} por perder siendo de arriba` : `Derrota contra ${w} (+3`) + rosco(d.bagelsL) + ")" },
   );
   return d;
 }
 
-// Partidos confirmados antes de que existiera el bonus por set a 0: les suma lo que les toca.
-// Idempotente: solo toca partidos cuyas deltas no tienen todavía el campo de roscos.
-export function backfillBagels(state, now = Date.now()) {
-  let n = 0;
-  for (const m of confirmedMatches(state)) {
-    if (!m.deltas || m.deltas.bagelsW !== undefined) continue;
-    const bg = countBagels(m.sets);
-    const bagelW = bg.w * RULES.bagelBonus, bagelL = bg.l * RULES.bagelBonus;
-    Object.assign(m.deltas, { bagelsW: bg.w, bagelsL: bg.l, bagelW, bagelL,
-      winner: round1(m.deltas.winner + bagelW), loser: round1(m.deltas.loser + bagelL) });
-    const vs = (id) => playerById(state, id)?.name;
-    if (bagelW) { state.ledger.push({ id: uid("l"), ts: now, playerId: m.winner, pts: bagelW, matchId: m.id, reason: `Bonus por set a 0 contra ${vs(m.loser)} (${scoreText(m.sets)})` }); n++; }
-    if (bagelL) { state.ledger.push({ id: uid("l"), ts: now, playerId: m.loser, pts: bagelL, matchId: m.id, reason: `Bonus por set a 0 contra ${vs(m.winner)} (${scoreText(m.sets)})` }); n++; }
+// Recalcula toda la liga con las reglas actuales: vuelve a jugar, en orden, todos los partidos
+// confirmados contra la clasificación de cada momento. Conserva ajustes manuales, sanciones por
+// trampa y el bonus de participación. Los partidos anulados no cuentan (sumaban y restaban lo mismo).
+// Devuelve la diferencia de puntos por jugador.
+export function recalculate(state) {
+  const before = pointsOf(state);
+  const kept = state.ledger.filter((e) => !e.matchId || /^Sanción/.test(e.reason || ""));
+  const events = [
+    ...kept.map((e) => ({ ts: e.ts, e })),
+    ...confirmedMatches(state).map((m) => ({ ts: m.confirmedAt || m.createdAt, m })),
+  ].sort((x, y) => x.ts - y.ts || (x.e ? -1 : 1));
+  state.ledger = [];
+  for (const ev of events) {
+    if (ev.e) state.ledger.push(ev.e);
+    else confirmMatch(state, ev.m, { now: ev.ts, how: ev.m.confirmedHow || "rival" });
   }
-  return n;
+  state.rulesVersion = RULES_VERSION;
+  const after = pointsOf(state);
+  const diff = {};
+  for (const p of state.players) diff[p.id] = round1((after[p.id] || 0) - (before[p.id] || 0));
+  return diff;
 }
 
 // Anula un partido ya confirmado devolviendo los puntos que generó.
