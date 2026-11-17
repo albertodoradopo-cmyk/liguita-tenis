@@ -1,5 +1,5 @@
 import { mutate } from "../lib/store.mjs";
-import { confirmMatch, RULES } from "../lib/league.mjs";
+import { confirmMatch, isGamesWin, RULES } from "../lib/league.mjs";
 import { resolveVote, sendNotifications } from "../lib/flow.mjs";
 import { weeklySummary } from "../lib/notify.mjs";
 
@@ -19,7 +19,7 @@ export default async () => {
     if (!s.baseUrl) return out; // nadie ha usado la web aún
     for (const m of s.matches) {
       if (m.status === "pending" && now - m.createdAt > RULES.autoConfirmHours * 3600e3) {
-        if (m.incomplete) {
+        if (m.incomplete && !isGamesWin(m)) {
           m.status = "vote"; m.voteStartedAt = now; m.votes = {};
           out.push(["vote", m.id]);
         } else {

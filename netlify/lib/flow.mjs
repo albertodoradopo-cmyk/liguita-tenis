@@ -1,5 +1,5 @@
 import * as N from "./notify.mjs";
-import { confirmMatch } from "./league.mjs";
+import { confirmMatch, isGamesWin } from "./league.mjs";
 
 export class HttpError extends Error {
   constructor(msg, status = 400) { super(msg); this.status = status; }
@@ -21,7 +21,7 @@ export function applyAction(state, m, playerId, action, reason) {
       m.rejectedAt = now;
       m.rejectReason = (reason || "").slice(0, 300);
       notify.push(["rejected", m.id, playerId, m.rejectReason]);
-    } else if (m.incomplete) {
+    } else if (m.incomplete && !isGamesWin(m)) {
       m.status = "vote";
       m.voteStartedAt = now;
       m.votes = {};

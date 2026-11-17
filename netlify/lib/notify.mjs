@@ -1,6 +1,6 @@
 import { sign } from "./auth.mjs";
 import { send, layout, button, esc } from "./mail.mjs";
-import { playerById, scoreText, standings, RULES } from "./league.mjs";
+import { playerById, scoreText, standings, isGamesWin, RULES } from "./league.mjs";
 
 const name = (state, id) => playerById(state, id)?.name || id;
 const email = (state, id) => playerById(state, id)?.email || "";
@@ -16,7 +16,7 @@ async function actLink(state, matchId, playerId, action) {
 function matchBox(state, m) {
   const photo = m.photo ? `<p style="margin:8px 0 0;color:#6b6f66;font-size:13px">Hay foto del partido en la web.</p>` : "";
   return `<div style="font-size:18px;font-weight:700;margin-bottom:4px">${esc(name(state, m.winner))} gana a ${esc(name(state, m.loser))}</div>
-<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin:6px 0">${esc(scoreText(m.sets))}${m.incomplete ? " <span style='font-size:13px;color:#b4532a'>(sin terminar)</span>" : ""}</div>
+<div style="font-size:24px;font-weight:800;letter-spacing:.02em;margin:6px 0">${esc(scoreText(m.sets))}${isGamesWin(m) ? " <span style='font-size:13px;color:#b4532a'>(ganado por juegos)</span>" : m.incomplete ? " <span style='font-size:13px;color:#b4532a'>(sin terminar)</span>" : ""}</div>
 <div style="color:#6b6f66">${esc(venueOf(m))}${m.playedOn ? " · " + esc(m.playedOn) : ""}</div>${photo}`;
 }
 
@@ -24,7 +24,10 @@ export async function notifyConfirmRequest(state, m) {
   const other = m.reportedBy === m.winner ? m.loser : m.winner;
   const reporter = name(state, m.reportedBy);
   let subject;
-  if (m.incomplete) subject = `${reporter} ha apuntado un partido sin terminar contra ti, confírmalo`;
+  if (isGamesWin(m)) subject = other === m.loser
+    ? `${reporter} te ha ganado por juegos, confirma el resultado, por favor`
+    : `Has ganado a ${reporter} por juegos, confirma el resultado`;
+  else if (m.incomplete) subject = `${reporter} ha apuntado un partido sin terminar contra ti, confírmalo`;
   else if (other === m.loser) subject = `Has perdido contra ${reporter}, confirma el resultado, por favor`;
   else subject = `Has ganado a ${reporter}, confirma el resultado`;
   const inner = `${matchBox(state, m)}
@@ -38,13 +41,13 @@ ${button(await actLink(state, m.id, other, "reject"), "No es así", "#9a3b1f")}
 export async function notifyConfirmed(state, m) {
   const W = name(state, m.winner).toUpperCase();
   const L = name(state, m.loser).toUpperCase();
-  const subject = `${W} HA GANADO A ${L} ${scoreText(m.sets)} EN ${venueOf(m).toUpperCase()}`;
+  const subject = `${W} HA GANADO A ${L}${isGamesWin(m) ? " POR JUEGOS" : ""} ${scoreText(m.sets)} EN ${venueOf(m).toUpperCase()}`;
   const d = m.deltas || {};
   const how = { auto: "Confirmado automáticamente a las 48 h.", votacion: "Convalidado por votación.", admin: "Confirmado por el admin." }[m.confirmedHow] || "";
   const top = standings(state).slice(0, 3).map((r) => `${r.pos}. ${esc(r.name)} · ${r.pts} pts`).join("<br>");
   const inner = `${matchBox(state, m)}
-<p style="margin:14px 0 0"><b>${esc(name(state, m.winner))}</b> +${d.winner} pts${d.above ? ` (ha ganado a alguien de arriba, +${d.bonus} extra)` : ""}<br>
-<b>${esc(name(state, m.loser))}</b> ${d.loser >= 0 ? "+" : ""}${d.loser} pts</p>
+<p style="margin:14px 0 0"><b>${esc(name(state, m.winner))}</b> +${d.winner} pts${[d.above ? `ha ganado a alguien de arriba, +${d.bonus} extra` : "", d.bagelW ? `+${d.bagelW} por ${d.bagelsW === 1 ? "set" : d.bagelsW + " sets"} a 0` : ""].filter(Boolean).map((x) => ` (${x})`).join("")}<br>
+<b>${esc(name(state, m.loser))}</b> ${d.loser >= 0 ? "+" : ""}${d.loser} pts${d.bagelL ? ` (+${d.bagelL} por set a 0)` : ""}</p>
 ${how ? `<p style="color:#6b6f66;font-size:13px">${how}</p>` : ""}
 <p style="margin:14px 0 0"><b>Puestos de cena</b><br>${top}</p>`;
   return send(allEmails(state), subject, layout(subject, inner, state.baseUrl));

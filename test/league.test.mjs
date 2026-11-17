@@ -57,3 +57,46 @@ assert.throws(() => L.normalizeReport({ reporterId: "a", opponentId: "b", result
 assert.doesNotThrow(() => L.normalizeReport({ reporterId: "a", opponentId: "b", result: "win", sets: [[4, 2]], incomplete: true }));
 
 console.log("OK: todas las reglas pasan");
+
+// 8. Bonus por set a 0: 6-0 6-3 -> ganador +2
+{
+  const v = L.emptyState();
+  const m = { id: "b1", winner: "jordi", loser: "puig", sets: [[6, 0], [6, 3]], status: "p" };
+  v.matches.push(m); const d = L.confirmMatch(v, m);
+  assert.deepEqual([d.winner, d.loser, d.bagelsW], [12, 3, 1]);
+  // el perdedor gana un set 0-6: también suma
+  const m2 = { id: "b2", winner: "cucho", loser: "erik", sets: [[0, 6], [6, 4], [10, 8]], status: "p" };
+  v.matches.push(m2); const d2 = L.confirmMatch(v, m2);
+  assert.deepEqual([d2.winner, d2.loser], [10, 5]);
+  // 7-0 (no debería pasar, pero cuenta) y 3-0 a medias no
+  assert.deepEqual(L.countBagels([[6, 0], [0, 6], [3, 0], [7, 0]]), { w: 2, l: 1 });
+  // anular devuelve también el bonus
+  const before = L.pointsOf(v).jordi;
+  L.annulMatch(v, m);
+  assert.equal(L.pointsOf(v).jordi, before - 12);
+  assert.equal(L.standings(v).find((r) => r.id === "erik").bagels, 1);
+}
+
+// 9. Ganado por juegos: 6-3 3-1 vale; 3-6 4-1 (7-7) no
+{
+  const ok = L.normalizeReport({ reporterId: "alfon", opponentId: "cucho", result: "win", sets: [[6, 3], [3, 1]], incomplete: true, mode: "games" });
+  assert.equal(ok.winner, "alfon");
+  assert.throws(() => L.normalizeReport({ reporterId: "alfon", opponentId: "cucho", result: "win", sets: [[3, 6], [4, 1]], incomplete: true, mode: "games" }), /más juegos/);
+  // set a medias empatado permitido solo si está sin terminar y es el último
+  assert.doesNotThrow(() => L.normalizeReport({ reporterId: "a", opponentId: "b", result: "win", sets: [[6, 2], [3, 3]], incomplete: true, mode: "games" }));
+  assert.throws(() => L.normalizeReport({ reporterId: "a", opponentId: "b", result: "win", sets: [[3, 3], [6, 2]], incomplete: true, mode: "games" }));
+}
+
+// 10. Backfill de partidos viejos (sin campo de roscos): idempotente
+{
+  const v = L.emptyState();
+  const old = { id: "o1", winner: "barru", loser: "cacha", sets: [[6, 0], [6, 0]], status: "confirmed", deltas: { above: false, bonus: 0, winner: 10, loser: 3 } };
+  v.matches.push(old);
+  v.ledger.push({ id: "x", ts: 1, playerId: "barru", pts: 10, matchId: "o1" }, { id: "y", ts: 1, playerId: "cacha", pts: 3, matchId: "o1" });
+  assert.equal(L.backfillBagels(v), 1);
+  assert.equal(L.pointsOf(v).barru, 14);
+  assert.equal(old.deltas.winner, 14);
+  assert.equal(L.backfillBagels(v), 0);
+  assert.equal(L.pointsOf(v).barru, 14);
+}
+console.log("OK: reglas nuevas (set a 0, por juegos, backfill)");

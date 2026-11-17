@@ -105,6 +105,8 @@ dialog::backdrop{background:rgba(29,36,32,.55)}
 .seg{display:flex;background:#efe9db;border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:none;padding:10px;border-radius:9px;font-weight:600;cursor:pointer;color:var(--muted)}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#mode button{font-size:13px;padding:9px 4px}
+.exportbar{display:flex;justify-content:flex-end;margin:-6px 0 14px}
 .seg button.on.win{color:var(--win-ink)}.seg button.on.loss{color:var(--danger)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chips button{border:1px solid #d9d1bd;background:#fff;border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:500}
@@ -209,6 +211,13 @@ function streak(id) {
   for (const m of ms) { if ((m.winner === id) === first) n++; else break; }
   return (first ? "G" : "P") + n;
 }
+const isGames = (m) => Boolean(m.incomplete && m.mode === "games");
+// Sets ganados 6-0 / 7-0. sets en perspectiva del ganador del partido.
+function bagels(sets) {
+  let w = 0, l = 0;
+  for (const [a, b] of sets || []) { if (b === 0 && a >= 6 && a <= 7) w++; else if (a === 0 && b >= 6 && b <= 7) l++; }
+  return { w, l };
+}
 function deltaFor(m, id) { return m.deltas ? (m.winner === id ? m.deltas.winner : m.deltas.loser) : null; }
 
 /* ---------- render ---------- */
@@ -246,7 +255,7 @@ function renderPending() {
   let h = `<div class="alert">`;
   if (toConfirm.length) {
     h += `<h3>Tienes que confirmar</h3>`;
-    h += toConfirm.map((m) => `<div class="row"><div><b>${esc(name(m.winner))}</b> gana a <b>${esc(name(m.loser))}</b> ${esc(score(m.sets))}<div class="small muted">${esc(venueOf(m))}${m.incomplete ? " · sin terminar, irá a votación" : ""}</div></div>
+    h += toConfirm.map((m) => `<div class="row"><div><b>${esc(name(m.winner))}</b> gana a <b>${esc(name(m.loser))}</b> ${esc(score(m.sets))}<div class="small muted">${esc(venueOf(m))}${isGames(m) ? " · ganado por juegos" : m.incomplete ? " · sin terminar, irá a votación" : ""}</div></div>
       <div><button class="btn sm" data-act="confirm" data-id="${m.id}">Confirmar</button> <button class="btn sm red" data-act="reject" data-id="${m.id}">No es así</button></div></div>`).join("");
   }
   if (toVote.length) {
@@ -289,6 +298,7 @@ function viewRank() {
   </tr>`).join("");
   return `
   <table class="rank"><thead><tr><th>#</th><th>Jugador</th><th>Pts</th><th>PJ</th><th class="hide-s">G-P</th><th class="hide-s">Sets</th><th>Forma</th></tr></thead><tbody>${body}</tbody></table>
+  <div class="exportbar"><button class="btn sec sm" data-export>Descargar Excel</button></div>
   <p class="small muted" style="margin:4px 2px 18px">Los 3 primeros en verde ganan la cena. <span class="tag bonus" style="margin:0">+7</span> = ya tiene entre 7 y 15 partidos y suma el bonus al cerrar la temporada. Empate a puntos: cara a cara.</p>
   <div class="card chart"><h2>Evolución de puntos</h2>${anyMatch ? pointsChart() : '<div class="empty">Aún no hay partidos. El primero que gane estrena la gráfica.</div>'}</div>
   <div class="card"><h2>Últimos partidos</h2>${matchList(confirmed().slice(0, 5)) || '<div class="empty">Nada todavía</div>'}</div>`;
@@ -344,13 +354,16 @@ function matchList(ms, perspective) {
     const st = { pending: '<span class="tag clay">pendiente</span>', vote: '<span class="tag clay">en votación</span>', rejected: '<span class="tag clay">en disputa</span>', postponed: '<span class="tag clay">aplazado</span>', vote_failed: '<span class="tag clay">no convalidado</span>', annulled: `<span class="tag clay">anulado${m.annulReason === "trampa" ? " por trampa" : ""}</span>` }[m.status] || "";
     const extra = m.confirmedHow === "auto" ? '<span class="tag bonus">auto 48 h</span>' : m.confirmedHow === "votacion" ? '<span class="tag bonus">convalidado</span>' : "";
     const above = d?.above ? `<span class="tag dinner">ganó a uno de arriba</span>` : "";
+    const games = isGames(m) ? '<span class="tag clay">por juegos</span>' : "";
+    const bg = bagels(m.sets);
+    const rosco = bg.w + bg.l ? `<span class="tag bonus" title="+${S.rules.bagelBonus} por cada set ganado a 0">${bg.w + bg.l === 1 ? "set" : (bg.w + bg.l) + " sets"} a 0</span>` : "";
     const photo = m.photo ? `<img class="thumb" loading="lazy" src="/api/photo/${m.id}" data-photo="${m.id}" alt="Foto">` : "";
     const canVote = S.me && m.status === "postponed" && (m.winner === S.me.id || m.loser === S.me.id);
     return `<div class="match">
-      <div><b>${esc(name(m.winner))}</b> <span class="muted">gana a</span> <b>${esc(name(m.loser))}</b> ${st}${extra}${above}</div>
+      <div><b>${esc(name(m.winner))}</b> <span class="muted">gana a</span> <b>${esc(name(m.loser))}</b> ${st}${games}${extra}${above}${rosco}</div>
       <div class="score">${esc(score(m.sets))}</div>
-      <div class="meta">${photo}<span>${esc(venueOf(m))}</span><span>· ${when(m.confirmedAt || m.createdAt)}</span>${deltas}${m.incomplete ? "<span>· sin terminar</span>" : ""}${m.note ? `<span>· “${esc(m.note)}”</span>` : ""}
-      ${canVote ? `<button class="btn sm sec" data-reqvote="${m.id}">Pedir convalidación</button> <button class="btn sm sec" data-cancel2="${m.id}">Ya lo hemos acabado</button>` : ""}</div>
+      <div class="meta">${photo}<span>${esc(venueOf(m))}</span><span>· ${when(m.confirmedAt || m.createdAt)}</span>${deltas}${m.incomplete && !isGames(m) ? "<span>· sin terminar</span>" : ""}${m.note ? `<span>· “${esc(m.note)}”</span>` : ""}
+      ${canVote ? `<button class="btn sm sec" data-gameswin="${m.id}">Ganado por juegos</button> <button class="btn sm sec" data-reqvote="${m.id}">Pedir convalidación</button> <button class="btn sm sec" data-cancel2="${m.id}">Ya lo hemos acabado</button>` : ""}</div>
     </div>`;
   }).join("");
 }
@@ -365,6 +378,7 @@ function viewMatches() {
     sec("Aplazados", by("postponed"), "Los acabáis otro día y apuntáis el resultado final.") +
     sec("Jugados", by("confirmed")) +
     sec("Anulados", [...by("annulled"), ...by("vote_failed")]);
+  if (html) return `<div class="exportbar"><button class="btn sec sm" data-export>Descargar Excel</button></div>` + html;
   return html || `<div class="card empty">Todavía no hay partidos. Dale al botón de abajo cuando juguéis el primero.</div>`;
 }
 
@@ -404,6 +418,7 @@ function viewPlayer() {
       <div class="stat"><div class="v">${r.setsW}-${r.setsL}</div><div class="k">Sets</div></div>
       <div class="stat"><div class="v">${r.gamesW}-${r.gamesL}</div><div class="k">Juegos</div></div>
       <div class="stat"><div class="v">${streak(id)}</div><div class="k">Racha</div></div>
+      <div class="stat"><div class="v">${r.bagels || 0}</div><div class="k">Sets a 0</div></div>
     </div>
     <p class="small muted" style="margin:12px 0 0">${r.pj >= S.rules.participationMin && r.pj <= S.rules.participationMax ? "Ya tiene el bonus de participación (+7 al cierre)." : r.pj < S.rules.participationMin ? `Le faltan ${S.rules.participationMin - r.pj} partidos para el bonus de participación.` : "Ha pasado de 15 partidos, sin bonus de participación."}
     ${best ? ` Su mejor partido: ${signed(best.v)} pts contra ${esc(name(best.m.winner === id ? best.m.loser : best.m.winner))}.` : ""}</p>
@@ -421,6 +436,7 @@ function viewRules() {
   <p><b>Ganar:</b> ${R.win} puntos.</p>
   <p><b>Ganar a alguien que está por encima:</b> ${R.win} puntos más el ${R.abovePct * 100}% de los puntos que tiene él, y él pierde ese ${R.abovePct * 100}%. "Por encima" se mira con la clasificación en el momento en que se confirma el partido, y esos puntos quedan fijados.</p>
   <p><b>Perder:</b> ${R.loss} puntos por jugar, que se valora.</p>
+  <p><b>Set a 0:</b> cada set que ganas 6-0 suma ${R.bagelBonus} puntos más, ganes o pierdas el partido.</p>
   <p><b>Participación:</b> si al acabar la temporada has jugado entre ${R.participationMin} y ${R.participationMax} partidos, se te suman ${R.participationBonus} puntos.</p>
   <p><b>Todos empezamos en 0</b>, así las victorias pesan más.</p>
   <p><b>Empate a puntos:</b> manda el cara a cara entre los empatados.</p>
@@ -428,7 +444,7 @@ function viewRules() {
   <div class="card rules"><h2>Cómo se apunta un partido</h2>
   <p>Cualquiera de los dos lo apunta en la web con el resultado, la pista y, si quiere, una foto. Al otro le llega un correo para confirmarlo. Cuando lo confirma, se actualiza la clasificación y nos llega el correo a todos.</p>
   <p>Si el rival no contesta en ${R.autoConfirmHours} horas, se da por confirmado. Si no está de acuerdo, queda en disputa y lo resuelve el admin.</p>
-  <p><b>Partido sin terminar:</b> o se pide que el resto lo convalidemos (mayoría simple de los que no jugaron; si en ${R.voteHours} h no hay mayoría, gana lo que más se haya votado) o se queda aplazado para acabarlo otro día.</p></div>
+  <p><b>Partido sin terminar:</b> tres opciones. Se puede dar por <b>ganado por juegos</b> al que iba por delante en juegos: el rival lo confirma y cuenta como una victoria normal. O se pide que el resto lo convalidemos (mayoría simple de los que no jugaron; si en ${R.voteHours} h no hay mayoría, gana lo que más se haya votado) o se queda aplazado para acabarlo otro día.</p></div>
   <div class="card rules"><h2>Trampas</h2>
   <p>Si dos se inventan un resultado para beneficiar a uno, el partido se anula. El que se chiva pierde solo ${Math.abs(R.snitchPenalty)} puntos y el que no ha dicho nada pierde lo que sumó y ${Math.abs(R.cheatPenalty)} más.</p></div>`;
 }
@@ -470,10 +486,16 @@ function viewAdmin() {
     <div class="field" style="display:flex;gap:8px"><input class="inp" id="season-name" value="${esc(S.season.name)}"><button class="btn sec" id="rename">Renombrar</button></div>
     <div class="actions" style="justify-content:flex-start;flex-wrap:wrap">
       <button class="btn sec" id="test-mail">Enviarme correo de prueba</button>
+      ${pendingBagels() ? `<button class="btn sec" id="backfill">Dar bonus de sets a 0 a partidos anteriores (${pendingBagels()})</button>` : ""}
       <button class="btn sec" id="weekly">Mandar resumen a todos</button>
       <button class="btn red" id="close-season" ${S.season.closed ? "disabled" : ""}>${S.season.closed ? "Temporada cerrada" : "Cerrar temporada y dar bonus"}</button>
     </div>
   </div>`;
+}
+
+// Partidos confirmados antes de la regla del set a 0 que tienen algún 6-0 sin bonus
+function pendingBagels() {
+  return confirmed().filter((m) => m.deltas && m.deltas.bagelsW === undefined && (bagels(m.sets).w + bagels(m.sets).l) > 0).length;
 }
 
 async function adminOp(body, okMsg) {
@@ -517,6 +539,7 @@ function bindAdmin() {
   $("#rename", v)?.addEventListener("click", () => adminOp({ op: "renameSeason", name: $("#season-name").value }));
   $("#test-mail", v)?.addEventListener("click", () => adminOp({ op: "testMail" }, "Correo enviado, mira tu bandeja"));
   $("#weekly", v)?.addEventListener("click", () => { if (confirm("¿Mandar el resumen a todos ahora?")) adminOp({ op: "weekly" }, "Resumen enviado"); });
+  $("#backfill", v)?.addEventListener("click", () => { if (confirm("Se suman +2 por cada set ganado a 0 en los partidos ya confirmados antes de esta regla. ¿Seguro?")) adminOp({ op: "backfillBagels" }, "Bonus aplicado"); });
   $("#close-season", v)?.addEventListener("click", () => { if (confirm("Se suman los +7 de participación y la temporada queda cerrada. ¿Seguro?")) adminOp({ op: "closeSeason" }, "Temporada cerrada"); });
 }
 
@@ -526,10 +549,96 @@ function bindView() {
   v.querySelectorAll("[data-series]").forEach((el) => el.addEventListener("click", () => { const id = el.dataset.series; hiddenSeries.has(id) ? hiddenSeries.delete(id) : hiddenSeries.add(id); render(); }));
   v.querySelectorAll("[data-photo]").forEach((el) => el.addEventListener("click", () => openDialog(`<img class="photo-full" src="/api/photo/${el.dataset.photo}" alt="Foto del partido"><div class="actions"><button class="btn sec" data-close>Cerrar</button></div>`)));
   v.querySelectorAll("[data-reqvote]").forEach((el) => el.addEventListener("click", async () => { try { const r = await post(`match/${el.dataset.reqvote}/request-vote`); S = r.state; render(); toast("Enviado al rival para que lo confirme y vaya a votación"); } catch (e) { toast(e.message); } }));
+  v.querySelectorAll("[data-gameswin]").forEach((el) => el.addEventListener("click", async () => { try { const r = await post(`match/${el.dataset.gameswin}/games-win`); S = r.state; render(); toast("Enviado al rival para que lo confirme"); } catch (e) { toast(e.message); } }));
   v.querySelectorAll("[data-cancel2]").forEach((el) => el.addEventListener("click", () => cancelMatch(el.dataset.cancel2)));
+  v.querySelectorAll("[data-export]").forEach((b) => b.addEventListener("click", () => exportExcel(b)));
   $("#pick", v)?.addEventListener("change", (e) => { selected = e.target.value; render(); });
   $("#challenge", v)?.addEventListener("click", () => openChallenge(selected));
   if (tab === "admin") bindAdmin();
+}
+
+/* ---------- exportar a Excel ---------- */
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    sc.onload = () => resolve(window.XLSX);
+    sc.onerror = () => reject(new Error("No se ha podido cargar el generador de Excel"));
+    document.head.appendChild(sc);
+  });
+}
+
+function sheet(XLSX, rows, widths) {
+  const ws = XLSX.utils.aoa_to_sheet(rows, { cellDates: true, dateNF: "dd/mm/yyyy" });
+  ws["!cols"] = widths.map((w) => ({ wch: w }));
+  if (rows.length > 1) ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: rows[0].length - 1 } }) };
+  return ws;
+}
+
+async function exportExcel(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Generando…";
+  try {
+    const XLSX = await loadXLSX();
+    // Fecha como número de serie de Excel (sin hora ni zona horaria)
+    const serial = (y, mo, d) => ({ t: "n", v: (Date.UTC(y, mo, d) - Date.UTC(1899, 11, 30)) / 864e5, z: "dd/mm/yyyy" });
+    const day = (ts) => { if (!ts) return ""; const x = new Date(ts); return serial(x.getFullYear(), x.getMonth(), x.getDate()); };
+    const played = (m) => { if (m.playedOn) { const [y, mo, d] = m.playedOn.split("-").map(Number); return serial(y, mo - 1, d); } return day(m.createdAt); };
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const wb = XLSX.utils.book_new();
+
+    // 1. Clasificación
+    const rank = [["Pos", "Jugador", "Puntos", "Partidos", "Victorias", "Derrotas", "% victorias", "Sets ganados", "Sets perdidos", "Juegos ganados", "Juegos perdidos", "Sets a 0", "Racha", "Bonus participación"]];
+    for (const r of S.standings) {
+      rank.push([r.pos, r.name, r.pts, r.pj, r.pg, r.pp, r.pj ? r1((r.pg / r.pj) * 100) : 0, r.setsW, r.setsL, r.gamesW, r.gamesL, r.bagels || 0, streak(r.id),
+        r.pj >= S.rules.participationMin && r.pj <= S.rules.participationMax ? (S.season.closed ? "Sí, sumado" : "Sí, al cierre") : "No"]);
+    }
+    XLSX.utils.book_append_sheet(wb, sheet(XLSX, rank, [5, 12, 8, 9, 9, 9, 11, 12, 12, 13, 13, 9, 7, 17]), "Clasificación");
+
+    // 2. Partidos
+    const tipo = (m) => (isGames(m) ? "Ganado por juegos" : m.incomplete ? (m.status === "postponed" ? "Aplazado" : "Sin terminar (convalidación)") : "Normal");
+    const estado = { confirmed: "Confirmado", pending: "Pendiente", vote: "En votación", rejected: "En disputa", postponed: "Aplazado", vote_failed: "No convalidado", annulled: "Anulado" };
+    const como = { rival: "El rival", auto: "Automático 48 h", votacion: "Votación", admin: "Admin" };
+    const ms = S.matches.filter((m) => m.status !== "cancelled").sort((a, b) => (played(a).v - played(b).v) || (a.createdAt - b.createdAt));
+    const games = [["Fecha", "Ganador", "Perdedor", "Resultado", "Juegos ganador", "Juegos perdedor", "Pista", "Tipo", "Estado", "Confirmado por", "Pts ganador", "Pts perdedor", "Ganó a uno de arriba", "Extra por ganar arriba", "Sets a 0 ganador", "Sets a 0 perdedor", "Apuntado por", "Comentario"]];
+    for (const m of ms) {
+      const d = m.deltas || {}, bg = bagels(m.sets);
+      games.push([played(m), name(m.winner), name(m.loser), score(m.sets),
+        m.sets.reduce((t, [a]) => t + a, 0), m.sets.reduce((t, [, b]) => t + b, 0),
+        venueOf(m), tipo(m), (estado[m.status] || m.status) + (m.annulReason === "trampa" ? " (trampa)" : ""), como[m.confirmedHow] || "",
+        m.deltas ? d.winner : "", m.deltas ? d.loser : "", d.above ? "Sí" : (m.deltas ? "No" : ""), d.above ? d.bonus : (m.deltas ? 0 : ""),
+        bg.w, bg.l, name(m.reportedBy), m.note || ""]);
+    }
+    XLSX.utils.book_append_sheet(wb, sheet(XLSX, games, [11, 11, 11, 15, 14, 15, 12, 22, 14, 15, 11, 12, 18, 18, 15, 16, 12, 30]), "Partidos");
+
+    // 3. Cara a cara (victorias-derrotas de la fila contra la columna)
+    const ps = S.standings.map((r) => r.id);
+    const h2h = [["Fila contra columna", ...ps.map(name)]];
+    for (const a of ps) {
+      h2h.push([name(a), ...ps.map((b) => {
+        if (a === b) return "–";
+        const w = confirmed().filter((m) => m.winner === a && m.loser === b).length;
+        const l = confirmed().filter((m) => m.winner === b && m.loser === a).length;
+        return w + l ? `${w}-${l}` : "";
+      })]);
+    }
+    const wsH = XLSX.utils.aoa_to_sheet(h2h);
+    wsH["!cols"] = [{ wch: 20 }, ...ps.map(() => ({ wch: 9 }))];
+    XLSX.utils.book_append_sheet(wb, wsH, "Cara a cara");
+
+    // 4. Movimientos de puntos
+    const acc = {};
+    const led = [["Fecha", "Jugador", "Puntos", "Total tras el movimiento", "Motivo"]];
+    for (const e of [...S.ledger].sort((a, b) => a.ts - b.ts)) {
+      acc[e.playerId] = r1((acc[e.playerId] || 0) + e.pts);
+      led.push([day(e.ts), name(e.playerId), e.pts, acc[e.playerId], e.reason]);
+    }
+    XLSX.utils.book_append_sheet(wb, sheet(XLSX, led, [11, 12, 8, 22, 70]), "Movimientos de puntos");
+
+    XLSX.writeFile(wb, `liguita-tenis-${new Date().toISOString().slice(0, 10)}.xlsx`, { compression: true });
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = label; }
 }
 
 /* ---------- diálogos ---------- */
@@ -580,7 +689,7 @@ function openReport() {
   if (!S.me) { openLogin(); return; }
   const others = S.players.filter((p) => p.id !== S.me.id);
   const today = new Date().toISOString().slice(0, 10);
-  const f = { result: "win", venue: S.venues[0], incomplete: false, mode: "vote" };
+  const f = { result: "win", venue: S.venues[0], incomplete: false, mode: "games" };
   openDialog(`<h2>Apuntar partido</h2>
   <div class="field"><div class="seg" id="res"><button data-v="win" class="on win">He ganado</button><button data-v="loss" class="loss">He perdido</button></div></div>
   <div class="field"><label>Contra</label><select class="inp" id="opp"><option value="">Elige rival</option>${others.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>
@@ -596,7 +705,7 @@ function openReport() {
   </div>
   <div class="field"><label class="check"><input type="checkbox" id="inc"><span>El partido no se terminó</span></label>
     <div id="incbox" hidden style="margin-top:8px">
-      <div class="seg" id="mode"><button data-v="vote" class="on">Pedir convalidación</button><button data-v="postpone">Lo acabamos otro día</button></div>
+      <div class="seg" id="mode"><button data-v="games" class="on">Ganado por juegos</button><button data-v="vote">Convalidación</button><button data-v="postpone">Otro día</button></div>
       <p class="small muted" id="modehelp" style="margin:6px 2px 0"></p>
     </div></div>
   <div class="field"><input class="inp" id="note" maxlength="200" placeholder="Comentario (opcional)"></div>
@@ -606,13 +715,22 @@ function openReport() {
 
   const upd = () => {
     const opp = $("#opp").value;
-    const help = { vote: "Tu rival lo confirma y luego votamos el resto. Si sale que sí, cuenta como victoria normal para quien marques como ganador.", postpone: "Se guarda como aplazado, sin puntos. Cuando lo acabéis, apuntáis el resultado final." };
+    const help = { games: "Gana quien iba por delante en juegos. Marca arriba si has ganado o perdido y pon el resultado tal cual quedó (ej. 6-3 3-1). Tu rival lo confirma y cuenta como victoria normal.", vote: "Tu rival lo confirma y luego votamos el resto. Si sale que sí, cuenta como victoria normal para quien marques como ganador.", postpone: "Se guarda como aplazado, sin puntos. Cuando lo acabéis, apuntáis el resultado final." };
     $("#modehelp").textContent = help[f.mode];
     const p = $("#prev");
     if (!opp || (f.incomplete && f.mode === "postpone")) { p.hidden = true; return; }
     const x = previewPoints(S.me.id, opp, f.result);
+    // sets que ha metido: [yo, rival] -> perspectiva del ganador
+    const mine = [1, 2, 3].map((i) => [Number($(`[data-set="${i}"][data-side="a"]`).value), Number($(`[data-set="${i}"][data-side="b"]`).value)])
+      .filter((_, i) => $(`[data-set="${i + 1}"][data-side="a"]`).value !== "" && $(`[data-set="${i + 1}"][data-side="b"]`).value !== "");
+    const bg = bagels(f.result === "win" ? mine : mine.map(([a, b]) => [b, a]));
+    const bw = bg.w * S.rules.bagelBonus, bl = bg.l * S.rules.bagelBonus;
+    const notes = [];
+    if (x.above) notes.push(`${esc(name(x.w))} gana a alguien de arriba: +${fmt(x.b)} extra`);
+    if (bw) notes.push(`${esc(name(x.w))} +${bw} por ${bg.w === 1 ? "set" : bg.w + " sets"} a 0`);
+    if (bl) notes.push(`${esc(name(x.l))} +${bl} por set a 0`);
     p.hidden = false;
-    p.innerHTML = `Si se confirma: <b>${esc(name(x.w))} ${signed(x.wd)}</b> · ${esc(name(x.l))} ${signed(x.ld)}${x.above ? `<br><span class="small">Gana a alguien de arriba: +${fmt(x.b)} extra</span>` : ""}`;
+    p.innerHTML = `Si se confirma: <b>${esc(name(x.w))} ${signed(x.wd + bw)}</b> · ${esc(name(x.l))} ${signed(x.ld + bl)}${notes.length ? `<br><span class="small">${notes.join(" · ")}</span>` : ""}`;
   };
   const seg = (sel, key, after) => $(sel).querySelectorAll("button").forEach((b) => b.addEventListener("click", (e) => {
     e.preventDefault(); f[key] = b.dataset.v;
@@ -630,6 +748,7 @@ function openReport() {
   document.querySelectorAll("[data-set]").forEach((inp) => inp.addEventListener("input", () => {
     inp.value = inp.value.replace(/\D/g, "");
     if (inp.value.length >= 1 && Number(inp.value) <= 7 && inp.dataset.side === "a") inp.nextElementSibling?.focus();
+    upd();
   }));
   upd();
 

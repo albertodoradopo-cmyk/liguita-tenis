@@ -12,6 +12,7 @@ export const RULES = {
   participationBonus: 7,
   snitchPenalty: -5,  // el que se chiva
   cheatPenalty: -10,  // el que calla (además pierde lo que sumó)
+  bagelBonus: 2,      // por cada set ganado 6-0 (o 7-0)
   autoConfirmHours: 48,
   voteHours: 72,
 };
@@ -59,16 +60,35 @@ export function pointsOf(state) {
   return pts;
 }
 
+// Sets acabados a 0 (6-0 o 7-0). Un set a medias tipo 3-0 no cuenta.
+// sets en perspectiva del ganador del partido: [juegos ganador, juegos perdedor]
+export function countBagels(sets) {
+  let w = 0, l = 0;
+  for (const [a, b] of sets || []) {
+    if (b === 0 && a >= 6 && a <= 7) w++;
+    else if (a === 0 && b >= 6 && b <= 7) l++;
+  }
+  return { w, l };
+}
+
 // Puntos que genera un partido según la clasificación del momento.
-export function computeDeltas(state, winnerId, loserId) {
+export function computeDeltas(state, winnerId, loserId, sets) {
   const pts = pointsOf(state);
   const wp = pts[winnerId] || 0;
   const lp = pts[loserId] || 0;
+  const bg = countBagels(sets);
+  const bagelW = bg.w * RULES.bagelBonus;
+  const bagelL = bg.l * RULES.bagelBonus;
+  const extra = { bagelsW: bg.w, bagelsL: bg.l, bagelW, bagelL };
   if (lp > wp) {
     const bonus = round1(lp * RULES.abovePct);
-    return { above: true, bonus, winner: round1(RULES.win + bonus), loser: round1(RULES.loss - bonus) };
+    return { above: true, bonus, ...extra, winner: round1(RULES.win + bonus + bagelW), loser: round1(RULES.loss - bonus + bagelL) };
   }
-  return { above: false, bonus: 0, winner: RULES.win, loser: RULES.loss };
+  return { above: false, bonus: 0, ...extra, winner: RULES.win + bagelW, loser: RULES.loss + bagelL };
+}
+
+export function isGamesWin(m) {
+  return Boolean(m?.incomplete && m?.mode === "games");
 }
 
 export function scoreText(sets) {
@@ -76,20 +96,39 @@ export function scoreText(sets) {
 }
 
 export function confirmMatch(state, match, { now = Date.now(), how = "rival" } = {}) {
-  const d = computeDeltas(state, match.winner, match.loser);
+  const d = computeDeltas(state, match.winner, match.loser, match.sets);
   match.status = "confirmed";
   match.confirmedAt = now;
   match.confirmedHow = how; // rival | auto | votacion | admin
   match.deltas = d;
   const w = playerById(state, match.winner)?.name;
   const l = playerById(state, match.loser)?.name;
+  const how2 = isGamesWin(match) ? " por juegos" : "";
+  const rosco = (n) => (n ? `, +${n * RULES.bagelBonus} por ${n === 1 ? "set" : n + " sets"} a 0` : "");
   state.ledger.push(
     { id: uid("l"), ts: now, playerId: match.winner, pts: d.winner, matchId: match.id,
-      reason: d.above ? `Victoria contra ${l} (de arriba: +10 y +${d.bonus})` : `Victoria contra ${l}` },
+      reason: (d.above ? `Victoria${how2} contra ${l} (de arriba: +10 y +${d.bonus}` : `Victoria${how2} contra ${l} (+10`) + rosco(d.bagelsW) + ")" },
     { id: uid("l"), ts: now, playerId: match.loser, pts: d.loser, matchId: match.id,
-      reason: d.above ? `Derrota contra ${w} (+3 y -${d.bonus} por perder siendo de arriba)` : `Derrota contra ${w}` },
+      reason: (d.above ? `Derrota contra ${w} (+3 y -${d.bonus} por perder siendo de arriba` : `Derrota contra ${w} (+3`) + rosco(d.bagelsL) + ")" },
   );
   return d;
+}
+
+// Partidos confirmados antes de que existiera el bonus por set a 0: les suma lo que les toca.
+// Idempotente: solo toca partidos cuyas deltas no tienen todavía el campo de roscos.
+export function backfillBagels(state, now = Date.now()) {
+  let n = 0;
+  for (const m of confirmedMatches(state)) {
+    if (!m.deltas || m.deltas.bagelsW !== undefined) continue;
+    const bg = countBagels(m.sets);
+    const bagelW = bg.w * RULES.bagelBonus, bagelL = bg.l * RULES.bagelBonus;
+    Object.assign(m.deltas, { bagelsW: bg.w, bagelsL: bg.l, bagelW, bagelL,
+      winner: round1(m.deltas.winner + bagelW), loser: round1(m.deltas.loser + bagelL) });
+    const vs = (id) => playerById(state, id)?.name;
+    if (bagelW) { state.ledger.push({ id: uid("l"), ts: now, playerId: m.winner, pts: bagelW, matchId: m.id, reason: `Bonus por set a 0 contra ${vs(m.loser)} (${scoreText(m.sets)})` }); n++; }
+    if (bagelL) { state.ledger.push({ id: uid("l"), ts: now, playerId: m.loser, pts: bagelL, matchId: m.id, reason: `Bonus por set a 0 contra ${vs(m.winner)} (${scoreText(m.sets)})` }); n++; }
+  }
+  return n;
 }
 
 // Anula un partido ya confirmado devolviendo los puntos que generó.
@@ -144,12 +183,14 @@ export function confirmedMatches(state) {
 export function basicStats(state) {
   const s = {};
   for (const p of state.players) {
-    s[p.id] = { pj: 0, pg: 0, pp: 0, setsW: 0, setsL: 0, gamesW: 0, gamesL: 0 };
+    s[p.id] = { pj: 0, pg: 0, pp: 0, setsW: 0, setsL: 0, gamesW: 0, gamesL: 0, bagels: 0 };
   }
   for (const m of confirmedMatches(state)) {
     const w = s[m.winner], l = s[m.loser];
     if (!w || !l) continue;
     w.pj++; l.pj++; w.pg++; l.pp++;
+    const bg = countBagels(m.sets);
+    w.bagels += bg.w; l.bagels += bg.l;
     for (const [a, b] of m.sets || []) {
       // sets guardados desde la perspectiva del ganador
       if (a > b) { w.setsW++; l.setsL++; } else if (b > a) { w.setsL++; l.setsW++; }
@@ -203,20 +244,27 @@ export function standings(state) {
 
 // Convierte los sets que mete quien reporta (sus juegos / juegos del rival)
 // a la perspectiva del ganador y valida.
-export function normalizeReport({ reporterId, opponentId, result, sets, incomplete }) {
+export function normalizeReport({ reporterId, opponentId, result, sets, incomplete, mode }) {
   if (!reporterId || !opponentId || reporterId === opponentId) throw new Error("Rival no válido");
   if (!["win", "loss"].includes(result)) throw new Error("Indica si has ganado o perdido");
   const clean = (sets || [])
     .map(([a, b]) => [parseInt(a, 10), parseInt(b, 10)])
     .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
   if (!clean.length) throw new Error("Pon al menos un set");
-  for (const [a, b] of clean) {
+  clean.forEach(([a, b], i) => {
     if (a < 0 || b < 0 || a > 20 || b > 20) throw new Error("Resultado de set no válido");
-    if (a === b) throw new Error("Un set no puede acabar empatado");
-  }
+    // En un partido sin terminar el último set puede quedarse empatado (ej. 3-3)
+    const lastOpen = incomplete && i === clean.length - 1;
+    if (a === b && !lastOpen) throw new Error("Un set no puede acabar empatado");
+  });
   const winner = result === "win" ? reporterId : opponentId;
   const loser = result === "win" ? opponentId : reporterId;
   const winnerSets = result === "win" ? clean : clean.map(([a, b]) => [b, a]);
+  if (incomplete && mode === "games") {
+    const gw = winnerSets.reduce((t, [a]) => t + a, 0);
+    const gl = winnerSets.reduce((t, [, b]) => t + b, 0);
+    if (gw <= gl) throw new Error(`Para ganar por juegos el ganador tiene que llevar más juegos (ahora ${gw}-${gl})`);
+  }
   if (!incomplete) {
     const sw = winnerSets.filter(([a, b]) => a > b).length;
     const sl = winnerSets.length - sw;

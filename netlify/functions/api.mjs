@@ -4,7 +4,7 @@ import { mailConfigured, send, layout, esc } from "../lib/mail.mjs";
 import * as N from "../lib/notify.mjs";
 import { HttpError, applyAction, statusMsg, sendNotifications } from "../lib/flow.mjs";
 import {
-  standings, normalizeReport, confirmMatch, applyCheat, annulMatch, closeSeason,
+  standings, normalizeReport, confirmMatch, applyCheat, annulMatch, closeSeason, backfillBagels,
   playerById, uid, round1, scoreText, VENUES, RULES,
 } from "../lib/league.mjs";
 
@@ -135,12 +135,12 @@ export default async (req, context) => {
       const get = (k) => (form ? form.get(k) : body[k]);
       const sets = JSON.parse(get("sets") || "[]");
       const incomplete = get("incomplete") === "true" || get("incomplete") === true;
-      const mode = incomplete ? (get("mode") === "postpone" ? "postpone" : "vote") : null;
+      const mode = incomplete ? (["postpone", "games"].includes(get("mode")) ? get("mode") : "vote") : null;
       const venue = String(get("venue") || "");
       const venueOther = String(get("venueOther") || "").trim().slice(0, 60);
       if (![...VENUES, "Otra"].includes(venue)) throw new HttpError("Elige dónde se ha jugado");
       if (venue === "Otra" && !venueOther) throw new HttpError("Escribe el nombre de la pista");
-      const norm = normalizeReport({ reporterId: me.id, opponentId: get("opponent"), result: get("result"), sets, incomplete });
+      const norm = normalizeReport({ reporterId: me.id, opponentId: get("opponent"), result: get("result"), sets, incomplete, mode });
       if (!playerById(current, norm.winner) || !playerById(current, norm.loser)) throw new HttpError("Rival no válido");
       const playedOn = String(get("playedOn") || "").slice(0, 10);
       const id = uid("m");
@@ -181,11 +181,15 @@ export default async (req, context) => {
           m.status = "cancelled";
           return [];
         }
-        if (op === "request-vote") {
-          // Un aplazado que al final quieren convalidar
+        if (op === "request-vote" || op === "games-win") {
+          // Un aplazado que al final quieren convalidar o dar por ganado por juegos
           if (![m.winner, m.loser].includes(me.id)) throw new HttpError("No jugaste este partido", 403);
           if (m.status !== "postponed") throw new HttpError(statusMsg(m), 409);
-          m.mode = "vote"; m.status = "pending"; m.reportedBy = me.id;
+          if (op === "games-win") {
+            const gw = m.sets.reduce((t, [a]) => t + a, 0), gl = m.sets.reduce((t, [, b]) => t + b, 0);
+            if (gw <= gl) throw new HttpError(`${playerById(s, m.winner).name} no lleva más juegos (${gw}-${gl}). Apúntalo de nuevo con el resultado correcto`);
+          }
+          m.mode = op === "games-win" ? "games" : "vote"; m.status = "pending"; m.reportedBy = me.id;
           return [["request", m.id]];
         }
         throw new HttpError("Acción no válida");
@@ -248,6 +252,11 @@ export default async (req, context) => {
             return [];
           }
           case "closeSeason": closeSeason(s); return [];
+          case "backfillBagels": {
+            const n = backfillBagels(s);
+            if (!n) throw new HttpError("No hay partidos anteriores con sets a 0 pendientes");
+            return [];
+          }
           case "renameSeason": s.season.name = String(body.name || s.season.name).slice(0, 60); return [];
           case "weekly": return [["weekly"]];
           default: throw new HttpError("Operación desconocida");
